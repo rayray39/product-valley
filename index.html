@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Product Valley — a product thinking RPG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2b2135; --panel:#f4e3c1; --panel2:#e6cfa4; --edge:#8a5a3c; --edge2:#5a3521;
+  --gold:#f0b429; --green:#5f9e4e; --bad:#c2452f; --good:#2f8f5b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#1b1420;overflow:hidden;
+  font-family:'VT323','Courier New',monospace;color:var(--ink);
+  -webkit-font-smoothing:none;}
+#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 40%,#2a2033 0%,#14101b 100%);}
+#stage{position:relative;width:100%;height:100%;overflow:hidden}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#cv{position:absolute;inset:0;width:100%;height:100%}
+
+.pix{font-family:'Press Start 2P','Courier New',monospace}
+.panel{
+  background:var(--panel);
+  border:4px solid var(--edge2);
+  box-shadow:0 0 0 4px var(--edge), 0 10px 0 rgba(0,0,0,.35), 0 0 40px rgba(0,0,0,.5);
+  image-rendering:pixelated;
+}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;pointer-events:none}
+#loc{position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  padding:8px 16px;font-size:11px;letter-spacing:1px;
+  background:rgba(32,22,38,.78);color:#f4e3c1;border:2px solid #f4e3c1;
+  opacity:0;transition:opacity .45s;white-space:nowrap}
+#loc.show{opacity:1}
+#stars{position:absolute;top:12px;left:14px;padding:8px 12px;
+  background:rgba(32,22,38,.72);border:2px solid #f4e3c1;color:#f4e3c1;font-size:10px;
+  letter-spacing:2px;line-height:1.6}
+#stars .lbl{display:block;font-size:8px;opacity:.65;letter-spacing:1px;margin-bottom:5px}
+#keys{position:absolute;bottom:10px;left:14px;font-size:16px;color:#d8c8b0;opacity:.6;
+  text-shadow:1px 1px 0 #000;line-height:1.3}
+#mini{position:absolute;top:12px;right:14px;border:2px solid #f4e3c1;
+  background:rgba(22,16,26,.85);padding:3px}
+#mini canvas{width:160px;height:auto}
+#toast{position:absolute;left:50%;top:40%;transform:translateX(-50%);
+  text-align:center;font-size:13px;color:#ffe9a8;opacity:0;transition:opacity .4s,top .4s;
+  pointer-events:none;background:rgba(28,20,34,.86);border:3px solid #f0b429;
+  padding:16px 26px;line-height:1.6;box-shadow:0 8px 0 rgba(0,0,0,.35)}
+#toast.show{opacity:1;top:34%}
+#toast .sub{font-size:16px;font-family:'VT323',monospace;color:#f0d9a8;margin-top:10px;letter-spacing:0}
+
+#prompt{position:absolute;padding:4px 9px;background:rgba(32,22,38,.86);
+  border:2px solid #f4e3c1;color:#f4e3c1;font-size:9px;transform:translate(-50%,-100%);
+  display:none;white-space:nowrap}
+
+/* ---------- dialogue ---------- */
+#dlg{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+  width:min(900px,94vw);display:none;z-index:20;max-height:calc(100vh - 48px)}
+#dlg.on{display:block}
+.dwrap{display:flex;gap:14px;padding:14px;max-height:calc(100vh - 56px);overflow-y:auto}
+.dwrap::-webkit-scrollbar{width:10px}
+.dwrap::-webkit-scrollbar-thumb{background:#b89468}
+.dport{flex:0 0 auto;width:84px;height:84px;background:#cbb189;border:3px solid var(--edge2);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dport canvas{width:72px;height:72px}
+.dmain{flex:1;min-width:0;display:flex;flex-direction:column}
+.dname{font-size:10px;letter-spacing:1px;color:#7a3f22;margin-bottom:8px}
+.dname .role{font-size:8px;color:#9a7a55;margin-left:10px;letter-spacing:0}
+.dtext{font-size:22px;line-height:1.26;min-height:56px;color:#3a2a22}
+.dtext b{color:#8a3b14}
+.dtext em{color:#5a4a7a;font-style:italic}
+.dhint{align-self:flex-end;font-size:14px;color:#9a7a55;margin-top:4px}
+.dhint::after{content:'▼';margin-left:6px;animation:bob .8s infinite steps(2)}
+@keyframes bob{50%{opacity:.25}}
+.dopts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.opt{pointer-events:auto;text-align:left;cursor:pointer;font-family:'VT323',monospace;
+  font-size:20px;line-height:1.2;padding:7px 10px;background:#e7d2a9;border:2px solid #b89468;
+  color:#3a2a22;transition:background .08s,transform .08s}
+.opt:hover,.opt.sel{background:#fff3d4;border-color:#8a5a3c;transform:translateX(3px)}
+.opt .k{font-family:'Press Start 2P',monospace;font-size:9px;color:#8a5a3c;margin-right:9px}
+.opt.right{background:#cfe9cf;border-color:#2f8f5b}
+.opt.wrong{background:#f0cfc7;border-color:#c2452f}
+.fbline{font-size:11px;letter-spacing:1px;margin-bottom:7px}
+.fbline.right{color:#2f7a4f}.fbline.wrong{color:#b23a22}
+
+/* ---------- journal ---------- */
+#jr{position:absolute;inset:0;display:none;z-index:30;align-items:center;justify-content:center;
+  background:rgba(14,10,18,.72);pointer-events:auto}
+#jr.on{display:flex}
+.jbox{width:min(880px,94vw);height:min(80vh,680px);display:flex;flex-direction:column;padding:0}
+.jhead{padding:14px 18px;border-bottom:3px solid var(--edge);display:flex;
+  justify-content:space-between;align-items:center;background:var(--panel2)}
+.jhead h2{font-size:13px;letter-spacing:1px;color:#5a3521}
+.jhead span{font-size:16px;color:#7a5a3c}
+.jbody{flex:1;overflow-y:auto;padding:18px 22px}
+.jbody::-webkit-scrollbar{width:12px}
+.jbody::-webkit-scrollbar-thumb{background:#b89468;border:2px solid var(--panel)}
+.card{border:3px solid #c0a173;background:#fdf0d4;padding:14px 16px;margin-bottom:16px}
+.card.locked{opacity:.45;background:#e2d3b4}
+.card h3{font-size:11px;letter-spacing:1px;color:#8a3b14;margin-bottom:7px;line-height:1.5}
+.card .by{font-size:15px;color:#9a7a55;margin-bottom:10px}
+.card ul{margin:6px 0 6px 20px}
+.card li,.card p{font-size:20px;line-height:1.3;color:#3a2a22;margin-bottom:5px}
+.card b{color:#8a3b14}
+.card .mono{font-family:'VT323',monospace;background:#efe0bd;padding:8px 10px;
+  border-left:4px solid #c0a173;margin:8px 0;font-size:19px;line-height:1.45}
+.card .note{font-size:18px;color:#7a6a55;border-top:2px dashed #c0a173;padding-top:8px;margin-top:10px}
+.jtabs{display:flex;gap:6px;padding:10px 18px;background:var(--panel2);border-bottom:3px solid var(--edge)}
+.jtab{cursor:pointer;font-family:'Press Start 2P',monospace;font-size:9px;padding:8px 11px;
+  background:#d8bf94;border:2px solid #b89468;color:#5a3521}
+.jtab.on{background:#fdf0d4;border-color:#5a3521}
+.qrow{display:flex;align-items:center;gap:12px;padding:9px 10px;border-bottom:2px dotted #c0a173}
+.qrow .st{font-size:22px;width:28px;text-align:center}
+.qrow .nm{flex:1;font-size:20px}
+.qrow .nm small{display:block;font-size:16px;color:#9a7a55}
+.qrow .where{font-size:16px;color:#8a5a3c}
+
+/* ---------- title ---------- */
+#title{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:22px;
+  background:linear-gradient(180deg,#1d2a3a 0%,#2c3f3a 55%,#3d4a2e 100%)}
+#title .logo{font-family:'Press Start 2P',monospace;font-size:clamp(18px,4.4vw,42px);
+  color:#f7e3a1;text-shadow:0 4px 0 #8a5a3c,0 8px 0 #4a2f1e,0 12px 24px rgba(0,0,0,.6);
+  letter-spacing:2px;text-align:center;line-height:1.5}
+#title .tag{font-size:24px;color:#cfe0b4;text-align:center;max-width:620px;line-height:1.25;padding:0 20px}
+#title .go{font-family:'Press Start 2P',monospace;font-size:11px;color:#fff;
+  background:#5f9e4e;border:3px solid #2f5a26;box-shadow:0 5px 0 #24441d;padding:14px 22px;
+  cursor:pointer;pointer-events:auto}
+#title .go:active{transform:translateY(3px);box-shadow:0 2px 0 #24441d}
+#title .ctl{font-size:19px;color:#9fb98a;text-align:center;line-height:1.5}
+#title .ctl b{color:#e8d9a8}
+
+/* ---------- touch ---------- */
+#touch{position:absolute;inset:0;display:none;z-index:15;pointer-events:none}
+#touch.on{display:block}
+.dpad{position:absolute;left:18px;bottom:18px;width:150px;height:150px}
+.dbtn{position:absolute;width:50px;height:50px;background:rgba(244,227,193,.3);
+  border:2px solid rgba(244,227,193,.55);pointer-events:auto;border-radius:6px}
+.dbtn:active{background:rgba(244,227,193,.6)}
+.du{left:50px;top:0}.dd{left:50px;top:100px}.dl{left:0;top:50px}.dr{left:100px;top:50px}
+.abtn{position:absolute;right:26px;bottom:40px;width:78px;height:78px;border-radius:50%;
+  background:rgba(95,158,78,.5);border:3px solid rgba(244,227,193,.65);pointer-events:auto;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Press Start 2P',monospace;font-size:14px;color:#fff}
+.jbtn{position:absolute;right:30px;bottom:140px;width:60px;height:46px;border-radius:6px;
+  background:rgba(60,45,80,.5);border:2px solid rgba(244,227,193,.6);pointer-events:auto;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Press Start 2P',monospace;font-size:9px;color:#fff}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div id="stars" class="pix"><span class="lbl">FIELD CARDS</span><span id="starrow">······</span></div>
+    <div id="mini"><canvas id="mm"></canvas></div>
+    <div id="loc" class="pix">Product Valley</div>
+    <div id="prompt" class="pix">E · talk</div>
+    <div id="toast" class="pix"></div>
+    <div id="keys">WASD / arrows · move &nbsp; E / space · talk &nbsp; J · journal &nbsp; M · mute</div>
+  </div>
+
+  <div id="dlg" class="panel">
+    <div class="dwrap">
+      <div class="dport"><canvas id="port" width="24" height="24"></canvas></div>
+      <div class="dmain">
+        <div class="dname pix"><span id="dnm">—</span><span class="role" id="drole"></span></div>
+        <div class="dtext" id="dtxt"></div>
+        <div class="dopts" id="dopts"></div>
+        <div class="dhint" id="dhint">space</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="jr"><div class="jbox panel">
+    <div class="jhead"><h2 class="pix">FIELD JOURNAL</h2><span>J or Esc to close</span></div>
+    <div class="jtabs" id="jtabs"></div>
+    <div class="jbody" id="jbody"></div>
+  </div></div>
+
+  <div id="touch">
+    <div class="dpad">
+      <div class="dbtn du" data-d="up"></div><div class="dbtn dd" data-d="down"></div>
+      <div class="dbtn dl" data-d="left"></div><div class="dbtn dr" data-d="right"></div>
+    </div>
+    <div class="abtn" data-a="1">A</div>
+    <div class="jbtn" data-j="1">JRNL</div>
+  </div>
+
+  <div id="title">
+    <div class="logo">PRODUCT<br>VALLEY</div>
+    <div class="tag">Seven neighbours. Seven ways to stop building the wrong thing.</div>
+    <button class="go" id="startbtn">ENTER THE VALLEY</button>
+    <div class="ctl"><b>WASD</b> or <b>arrows</b> to walk · <b>E</b> or <b>space</b> to talk<br>
+      <b>J</b> for your journal · <b>M</b> to mute</div>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+/* ============================================================ PART A */
+const TS = 16, SCALE = 3;
+const MW = 72, MH = 56;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const RND = mulberry32(90210);
+function hash2(x,y){let h=x*374761393+y*668265263;h=(h^(h>>13))*1274126177;return ((h^(h>>16))>>>0)/4294967296;}
+
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  r=clamp(Math.round(r+amt),0,255); g=clamp(Math.round(g+amt),0,255); b=clamp(Math.round(b+amt),0,255);
+  return '#'+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);
+}
+function cvs(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;
+  const x=c.getContext('2d');x.imageSmoothingEnabled=false;return c;}
+function px(g,x,y,w,h,c){g.fillStyle=c;g.fillRect(x|0,y|0,w|0,h|0);}
+/* filled ellipse in whole pixels — keeps the blocky look */
+function pell(g,cx,cy,rx,ry,c){
+  g.fillStyle=c;
+  for(let y=Math.ceil(cy-ry); y<=Math.floor(cy+ry); y++){
+    const t=(y+0.5-cy)/ry; if(Math.abs(t)>1) continue;
+    const w=Math.floor(Math.sqrt(1-t*t)*rx);
+    g.fillRect(Math.round(cx-w), y, w*2, 1);
+  }
+}
+
+/* ---------------- palette ---------------- */
+const P = {
+  grass:['#5f9e4e','#57944a','#69a857','#4f8a43'],
+  grassDot:['#4c8740','#75b45f','#427a38'],
+  dirt:'#b08a5e', dirtD:'#99754c', dirtL:'#c49a6b',
+  stone:'#9aa2aa', stoneD:'#80888f', stoneL:'#b4bbc2',
+  water:'#3b76ad', waterD:'#2f6294', waterL:'#5e9fd1', foam:'#b9dcf2',
+  sand:'#dcc78f', sandD:'#c4ac74',
+  soil:'#7a5236', soilD:'#654229',
+  wood:'#9a6f42', woodD:'#7a5430', woodL:'#b78b5c',
+  bark:'#6b4a2f', barkD:'#4e3521',
+  leaf:['#3f7a35','#4e9440','#5fab4e','#357029'],
+};
+
+/* ---------------- tile sprites ---------------- */
+const T = {GRASS:0, DIRT:1, STONE:2, WATER:3, SAND:4, SOIL:5, BRIDGE:6, DARK:7, FLOWER:8, PLAZA:9};
+const TILESET = {};
+
+function paintGrass(g, seed, dark){
+  const base = dark ? ['#477f3e','#41763a','#4f8a45','#3b6c34'] : P.grass;
+  const r = mulberry32(seed);
+  /* one base colour for every tile — variation lives in the speckle, so
+     neighbouring tiles never read as flat blocks of different green */
+  px(g,0,0,TS,TS, base[0]);
+  for(let i=0;i<34;i++){
+    const x=(r()*TS)|0, y=(r()*TS)|0;
+    px(g,x,y,1,1, base[1+((r()*(base.length-1))|0)]);
+  }
+  for(let i=0;i<14;i++) px(g,(r()*TS)|0,(r()*TS)|0,1,1, shade(base[0], r()<.5?-11:10));
+  /* little grass tufts — kept low-contrast so they don't tile visibly */
+  const nt = 1 + ((r()*3)|0);
+  for(let i=0;i<nt;i++){
+    const x=1+((r()*14)|0), y=2+((r()*12)|0), c=shade(base[0], 9);
+    px(g,x,y,1,2,c); if(r()<.6) px(g,x+1,y+1,1,1,c);
+  }
+}
+function paintFlower(g,seed){
+  paintGrass(g,seed,false);
+  const r=mulberry32(seed*7+11);
+  const cols=['#e8d44f','#e36c8d','#e8e4de','#c98ae0','#f09a3e'];
+  for(let i=0;i<3;i++){
+    const x=2+((r()*11)|0), y=3+((r()*10)|0), c=cols[(r()*cols.length)|0];
+    px(g,x,y+1,1,2,'#3f7a35');
+    px(g,x,y,1,1,c); px(g,x-1,y,1,1,shade(c,-25)); px(g,x+1,y,1,1,shade(c,-25));
+    px(g,x,y-1,1,1,shade(c,22));
+  }
+}
+function paintDirt(g,seed){
+  const r=mulberry32(seed+5);
+  px(g,0,0,TS,TS,P.dirt);
+  for(let i=0;i<26;i++) px(g,(r()*TS)|0,(r()*TS)|0,1,1, r()<.5?P.dirtD:P.dirtL);
+  for(let i=0;i<3;i++){const x=(r()*14)|0,y=(r()*14)|0; px(g,x,y,2,1,shade(P.dirt,-26));}
+}
+function paintStone(g,seed,plaza){
+  const r=mulberry32(seed+13);
+  px(g,0,0,TS,TS, plaza?shade(P.stone,6):P.stone);
+  const grout = shade(P.stone,-34);
+  /* 8x8 slabs */
+  for(let by=0;by<2;by++) for(let bx=0;bx<2;bx++){
+    const tint = (r()*2-1)*9;
+    px(g,bx*8,by*8,8,8, shade(plaza?shade(P.stone,6):P.stone, tint));
+    px(g,bx*8,by*8,8,1,shade(P.stone,18));
+  }
+  px(g,0,7,TS,1,grout); px(g,7,0,1,TS,grout);
+  px(g,0,15,TS,1,grout); px(g,15,0,1,TS,grout);
+  for(let i=0;i<7;i++) px(g,(r()*TS)|0,(r()*TS)|0,1,1, shade(P.stone,-18));
+}
+function paintSand(g,seed){
+  const r=mulberry32(seed+21);
+  px(g,0,0,TS,TS,P.sand);
+  for(let i=0;i<20;i++) px(g,(r()*TS)|0,(r()*TS)|0,1,1, r()<.5?P.sandD:shade(P.sand,14));
+}
+function paintSoil(g,seed){
+  px(g,0,0,TS,TS,P.soil);
+  const r=mulberry32(seed+33);
+  for(let y=1;y<TS;y+=4) px(g,0,y,TS,1,P.soilD);
+  for(let y=3;y<TS;y+=4) px(g,0,y,TS,1,shade(P.soil,12));
+  for(let i=0;i<10;i++) px(g,(r()*TS)|0,(r()*TS)|0,1,1,shade(P.soil,-18));
+}
+function paintBridge(g,seed){
+  px(g,0,0,TS,TS,P.wood);
+  for(let y=0;y<TS;y+=4){px(g,0,y,TS,1,P.woodD);px(g,0,y+1,TS,1,shade(P.wood,10));}
+  px(g,1,0,1,TS,P.woodD); px(g,14,0,1,TS,P.woodD);
+}
+function paintWater(g,seed,frame){
+  px(g,0,0,TS,TS,P.water);
+  const r=mulberry32(seed+41);
+  for(let i=0;i<10;i++) px(g,(r()*TS)|0,(r()*TS)|0,1,1,P.waterD);
+  /* drifting highlights */
+  for(let i=0;i<3;i++){
+    const y=((r()*TS)|0), x=(((r()*TS)|0)+frame*3+i*5)%TS;
+    px(g,x,y,3,1,P.waterL); px(g,(x+9)%TS,(y+6)%TS,2,1,shade(P.waterL,14));
+  }
+}
+
+const WATER_FRAMES = [];
+function buildTileset(){
+  for(const key of ['GRASS','FLOWER','DIRT','STONE','PLAZA','SAND','SOIL','BRIDGE','DARK']){
+    TILESET[key]=[];
+    for(let v=0;v<12;v++){
+      const c=cvs(TS,TS), g=c.getContext('2d');
+      const s=v*977+key.length*31;
+      if(key==='GRASS') paintGrass(g,s,false);
+      else if(key==='DARK') paintGrass(g,s,true);
+      else if(key==='FLOWER') paintFlower(g,s);
+      else if(key==='DIRT') paintDirt(g,s);
+      else if(key==='STONE') paintStone(g,s,false);
+      else if(key==='PLAZA') paintStone(g,s,true);
+      else if(key==='SAND') paintSand(g,s);
+      else if(key==='SOIL') paintSoil(g,s);
+      else if(key==='BRIDGE') paintBridge(g,s);
+      TILESET[key].push(c);
+    }
+  }
+  for(let f=0;f<4;f++){
+    const row=[];
+    for(let v=0;v<3;v++){const c=cvs(TS,TS); paintWater(c.getContext('2d'), v*313, f); row.push(c);}
+    WATER_FRAMES.push(row);
+  }
+}
+const TNAME = ['GRASS','DIRT','PLAZA','WATER','SAND','SOIL','BRIDGE','DARK','FLOWER','STONE'];
+/* ============================================================ PART B */
+/* character sheet: 4 frames x 4 directions, cells 16x24
+   dir 0 down, 1 left, 2 right, 3 up                                   */
+function drawCharCell(g, p, dir, frame){
+  const sk=p.skin, skD=shade(sk,-26), hr=p.hair, hrD=shade(hr,-24), hrL=shade(hr,18);
+  const sh=p.shirt, shD=shade(sh,-24), shL=shade(sh,16);
+  const pa=p.pants, paD=shade(pa,-22), sho=p.shoe||'#44301f';
+  const L = 4 + (frame===1?-1:frame===3?1:0);
+  const R = 4 + (frame===1?1:frame===3?-1:0);
+  const arm = frame===1?1:frame===3?-1:0;
+  const side = dir===1||dir===2, up = dir===3;
+
+  if(side){
+    /* legs */
+    px(g,5,17,3,R,pa); px(g,5,17+R,4,2,sho);
+    px(g,8,17,3,L,paD); px(g,8,17+L,4,2,shade(sho,-14));
+    /* torso */
+    px(g,5,10,7,8,sh); px(g,5,10,7,1,shL); px(g,5,17,7,1,shD);
+    /* head */
+    px(g,4,2,9,9,sk); px(g,12,5,1,3,sk);
+    px(g,4,2,9,2,hr); px(g,4,2,3,8,hr); px(g,4,2,9,1,hrL);
+    if(p.hat){px(g,2,1,12,2,p.hat); px(g,4,-1,9,2,shade(p.hat,-18)); px(g,4,-1,9,1,shade(p.hat,16));}
+    px(g,10,6,1,2,'#2e2430');                     /* eye */
+    px(g,11,9,2,1,skD);                            /* mouth line */
+    /* near arm */
+    px(g,7,11+arm,3,6,shD); px(g,7,17+arm,3,2,sk);
+  } else {
+    px(g,4,17,3,L,pa); px(g,4,17+L,3,2,sho);
+    px(g,9,17,3,R,pa); px(g,9,17+R,3,2,sho);
+    px(g,4,10,8,8,sh); px(g,4,10,8,1,shL); px(g,4,17,8,1,shD);
+    px(g,2,11+arm,2,6,sh); px(g,12,11-arm,2,6,sh);
+    px(g,2,17+arm,2,2,sk); px(g,12,17-arm,2,2,sk);
+    px(g,4,2,8,9,up?hr:sk);
+    if(!up){
+      px(g,3,1,10,4,hr); px(g,3,1,10,1,hrL);
+      px(g,3,3,2,5,hr); px(g,11,3,2,5,hr);
+      px(g,6,6,1,2,'#2e2430'); px(g,9,6,1,2,'#2e2430');
+      px(g,7,9,2,1,skD);
+    } else {
+      px(g,3,1,10,8,hr); px(g,3,1,10,1,hrL); px(g,4,9,8,2,sk);
+    }
+    if(p.hat){px(g,2,1,12,2,p.hat); px(g,4,-1,8,2,shade(p.hat,-18)); px(g,4,-1,8,1,shade(p.hat,16));}
+  }
+}
+function makeSheet(p){
+  const c = cvs(16*4, 24*4), g = c.getContext('2d');
+  for(let d=0; d<4; d++) for(let f=0; f<4; f++){
+    g.save(); g.translate(f*16, d*24);
+    if(d===1){ g.translate(16,0); g.scale(-1,1); drawCharCell(g,p,2,f); }
+    else drawCharCell(g,p,d,f);
+    g.restore();
+  }
+  return c;
+}
+
+/* ---------------- object sprite builders ---------------- */
+const SPR = {};
+function spr(key, w, h, fn){
+  if(SPR[key]) return SPR[key];
+  const c = cvs(w,h); fn(c.getContext('2d'), w, h); SPR[key]=c; return c;
+}
+
+function treeSpr(v){
+  return spr('tree'+v, 36, 48, (g)=>{
+    const r = mulberry32(v*4001+7);
+    const lf = P.leaf;
+    px(g,15,23,6,24,P.bark); px(g,15,23,2,24,shade(P.bark,14)); px(g,19,23,2,24,P.barkD);
+    px(g,13,44,10,3,P.barkD); px(g,12,46,12,2,shade(P.bark,-28));
+    const blobs = [[18,16,14,11],[11,21,9,7],[25,21,9,7],[18,9,10,7],[13,13,8,6],[23,13,8,6]];
+    for(const b of blobs) pell(g,b[0],b[1],b[2],b[3], lf[3]);
+    for(const b of blobs) pell(g,b[0],b[1]-1,b[2]-1,b[3]-1, lf[0]);
+    for(let i=0;i<34;i++){
+      const a=r()*6.28, rad=r()*12;
+      pell(g, 18+Math.cos(a)*rad, 16+Math.sin(a)*rad*0.78, 3+r()*2, 2+r()*2, r()<.45?lf[1]:lf[2]);
+    }
+    for(let i=0;i<7;i++) pell(g, 12+r()*11, 8+r()*9, 2, 2, shade(lf[2],9));
+  });
+}
+function pineSpr(){
+  return spr('pine', 30, 50, (g)=>{
+    px(g,13,34,4,14,P.barkD); px(g,11,46,8,3,shade(P.bark,-26));
+    const c1='#2f6a35', c2='#3d8040', c3='#4d9a4c';
+    for(let i=0;i<4;i++){
+      const y=8+i*9, w=7+i*5;
+      pell(g,15,y+4,w,5,c1);
+      px(g,15-w,y+5,w*2,1,shade(c1,-16));
+      pell(g,15,y+2,w-2,4,c2);
+      pell(g,13,y+1,3,2,c3);
+    }
+    pell(g,15,6,4,5,c2); px(g,14,2,2,5,c1);
+  });
+}
+function bushSpr(v){
+  return spr('bush'+v, 24, 20, (g)=>{
+    const r=mulberry32(v*131+3);
+    pell(g,12,13,10,6,P.leaf[3]); pell(g,12,12,9,6,P.leaf[1]);
+    pell(g,7,12,5,4,P.leaf[0]); pell(g,17,12,5,4,P.leaf[0]);
+    for(let i=0;i<10;i++) pell(g,5+r()*14, 7+r()*8, 2, 2, P.leaf[2]);
+    if(v===1) for(let i=0;i<4;i++) px(g,(5+r()*14)|0,(8+r()*7)|0,2,2,'#c9402f');
+  });
+}
+function rockSpr(v){
+  const big=v===1;
+  return spr('rock'+v, big?28:18, big?22:14, (g,w,h)=>{
+    pell(g,w/2,h-4,w/2-1,h/3,shade(P.stone,-30));
+    pell(g,w/2,h-6,w/2-2,h/3,P.stone);
+    pell(g,w/2-2,h-8,w/4,h/5,P.stoneL);
+    px(g,2,h-2,w-4,2,'rgba(0,0,0,.18)');
+  });
+}
+function stumpSpr(){
+  return spr('stump', 20, 16, (g)=>{
+    px(g,3,5,14,9,P.bark); px(g,3,5,14,2,shade(P.bark,-18));
+    pell(g,10,5,7,3,'#a87b4e'); pell(g,10,5,4,2,'#c09468');
+    px(g,2,13,16,2,shade(P.bark,-30));
+  });
+}
+function fenceSpr(dir){
+  return spr('fence'+dir, 16, 20, (g)=>{
+    if(dir===0){ px(g,2,6,12,2,P.wood); px(g,2,11,12,2,P.wood);
+      px(g,1,3,3,15,P.woodD); px(g,12,3,3,15,P.woodD);
+      px(g,1,3,1,15,shade(P.wood,16)); px(g,12,3,1,15,shade(P.wood,16));
+    } else { px(g,6,2,4,17,P.woodD); px(g,6,2,1,17,shade(P.wood,14));
+      px(g,3,6,10,2,P.wood); px(g,3,12,10,2,P.wood); }
+  });
+}
+function signSpr(){
+  return spr('sign', 22, 24, (g)=>{
+    px(g,9,12,4,11,P.woodD);
+    px(g,2,3,18,11,P.wood); px(g,2,3,18,1,shade(P.wood,20)); px(g,2,13,18,1,P.woodD);
+    px(g,1,2,20,1,P.barkD); px(g,1,14,20,1,P.barkD);
+    for(let i=0;i<3;i++) px(g,5,6+i*3,12,1,shade(P.wood,-22));
+  });
+}
+function cropSpr(v){
+  return spr('crop'+v, 16, 18, (g)=>{
+    const col = v===0?'#4e9440':v===1?'#6aa83c':'#58a05a';
+    for(let i=0;i<3;i++){const x=4+i*4;
+      px(g,x,9,1,8,col); px(g,x-1,10,1,3,shade(col,-18)); px(g,x+1,11,1,3,shade(col,-18));}
+    if(v===1){px(g,4,7,3,3,'#e0a62e');px(g,9,6,3,3,'#e0a62e');}
+    if(v===2){px(g,5,7,2,2,'#c2452f');px(g,10,8,2,2,'#c2452f');}
+  });
+}
+function lampSpr(){
+  return spr('lamp', 16, 34, (g)=>{
+    px(g,6,12,4,20,'#4a4a52'); px(g,4,30,8,3,'#3a3a42');
+    px(g,4,5,8,9,'#5a5a64'); px(g,5,6,6,7,'#f6d98a');
+    px(g,6,7,4,5,'#fff1c2'); px(g,5,2,6,3,'#4a4a52'); px(g,7,0,2,2,'#4a4a52');
+  });
+}
+function barrelSpr(){
+  return spr('barrel', 16, 20, (g)=>{
+    px(g,3,4,10,15,P.wood); px(g,3,4,2,15,shade(P.wood,14)); px(g,11,4,2,15,P.woodD);
+    px(g,2,7,12,2,'#6a5542'); px(g,2,14,12,2,'#6a5542');
+    pell(g,8,5,5,2,'#b78b5c'); px(g,2,18,12,2,'rgba(0,0,0,.2)');
+  });
+}
+function crateSpr(){
+  return spr('crate', 16, 16, (g)=>{
+    px(g,2,3,12,12,P.wood); px(g,2,3,12,2,shade(P.wood,18)); px(g,2,13,12,2,P.woodD);
+    px(g,2,3,2,12,shade(P.wood,10)); px(g,12,3,2,12,P.woodD);
+    px(g,2,8,12,1,P.woodD); px(g,7,3,2,12,P.woodD);
+  });
+}
+function wellSpr(){
+  return spr('well', 44, 50, (g)=>{
+    px(g,6,30,32,16,shade(P.stone,-26));
+    for(let y=0;y<4;y++) for(let x=0;x<5;x++){
+      px(g,7+x*6+(y%2?3:0), 31+y*4, 5, 3, shade(P.stone, (x+y)%2?-6:8));
+    }
+    pell(g,22,30,16,5,P.stoneL); pell(g,22,30,12,3,'#1d2a33');
+    px(g,8,16,4,18,P.woodD); px(g,32,16,4,18,P.woodD);
+    px(g,4,8,36,4,shade(P.wood,-10));
+    for(let i=0;i<9;i++) px(g,3+i*4,4+ (i%2?1:0),4,6,i%2?P.wood:P.woodL);
+    px(g,2,2,40,3,P.barkD);
+    px(g,10,14,24,2,'#6a5542');
+    px(g,19,16,6,6,P.woodD); px(g,20,17,4,4,'#3a2a1e');
+  });
+}
+function mineSpr(){
+  return spr('mine', 96, 68, (g)=>{
+    const r=mulberry32(777);
+    for(let i=0;i<30;i++){
+      const x=r()*96, y=28+r()*36, w=10+r()*18, h=7+r()*10;
+      pell(g,x,y,w/2,h/2, ['#6a6a74','#5c5c66','#787884','#50505a'][(r()*4)|0]);
+    }
+    pell(g,48,30,44,22,'#6e6e78'); pell(g,48,26,36,18,'#7c7c88');
+    pell(g,30,34,16,10,'#64646e'); pell(g,68,36,15,10,'#5c5c66');
+    px(g,34,36,28,30,'#1b1620');
+    pell(g,48,36,14,10,'#1b1620');
+    px(g,30,32,6,34,P.woodD); px(g,60,32,6,34,P.woodD);
+    px(g,28,28,40,6,P.wood); px(g,28,28,40,2,shade(P.wood,16));
+    px(g,36,40,6,2,'#3a3038'); px(g,52,48,8,2,'#3a3038');
+    px(g,8,56,80,4,'rgba(0,0,0,.2)');
+    /* rail + cart */
+    px(g,42,62,14,2,'#7a6a5a'); px(g,44,58,2,6,'#5a4a3a'); px(g,52,58,2,6,'#5a4a3a');
+  });
+}
+function houseSpr(key, wT, hT, o){
+  const W = wT*16, wallH = hT*16, roofH = Math.min(Math.round(W*0.42), 46);
+  const CW = W+16, CH = roofH + wallH;
+  return spr(key, CW, CH, (g)=>{
+    const wall=o.wall, wallD=shade(wall,-20), wallL=shade(wall,16);
+    px(g,8,roofH,W,wallH,wall);
+    for(let x=8;x<8+W;x+=5) px(g,x,roofH,1,wallH,wallD);
+    px(g,8,roofH,W,2,wallL);
+    px(g,8,roofH+wallH-6,W,6, o.base||'#8a8a92');
+    for(let x=8;x<8+W;x+=7) px(g,x,roofH+wallH-6,1,6, shade(o.base||'#8a8a92',-20));
+    /* windows */
+    const n = o.win===undefined?2:o.win;
+    for(let i=0;i<n;i++){
+      const wx = 8 + Math.round((i+1)*W/(n+1)) - 6, wy = roofH + 8;
+      px(g,wx-1,wy-1,14,14,'#4a3521');
+      px(g,wx,wy,12,12,'#f3cf86'); px(g,wx,wy,12,4,'#ffe9b4');
+      px(g,wx+5,wy,2,12,'#4a3521'); px(g,wx,wy+5,12,2,'#4a3521');
+    }
+    if(o.floors===2){
+      for(let i=0;i<n;i++){
+        const wx = 8 + Math.round((i+1)*W/(n+1)) - 5, wy = roofH + 28;
+        px(g,wx-1,wy-1,12,12,'#4a3521'); px(g,wx,wy,10,10,'#f3cf86');
+        px(g,wx+4,wy,2,10,'#4a3521'); px(g,wx,wy+4,10,2,'#4a3521');
+      }
+    }
+    /* door */
+    const dx = 8 + (W>>1) - 8, dy = roofH + wallH - 24;
+    px(g,dx-2,dy-2,20,26,'#5a3f26');
+    px(g,dx,dy,16,24,o.door||'#7a4f2c');
+    px(g,dx,dy,16,2,shade(o.door||'#7a4f2c',20));
+    px(g,dx+2,dy+3,12,8,shade(o.door||'#7a4f2c',-16));
+    px(g,dx+2,dy+13,12,8,shade(o.door||'#7a4f2c',-16));
+    px(g,dx+12,dy+12,2,2,'#f0c860');
+    px(g,dx-4,dy+22,24,2,'#6a6a72');
+    /* roof */
+    for(let i=0;i<roofH;i++){
+      const t = i/roofH;
+      const w = Math.round(lerp(10, CW, t));
+      const x = Math.round((CW-w)/2);
+      const band = (i%4<2);
+      px(g,x,i,w, 1, band?o.roof:shade(o.roof,-16));
+      px(g,x,i,1,1,shade(o.roof,-28)); px(g,x+w-1,i,1,1,shade(o.roof,-28));
+    }
+    px(g,Math.round(CW/2)-6,0,12,3,shade(o.roof,22));
+    px(g,0,roofH-3,CW,3,shade(o.roof,-30));
+    if(o.chimney!==false){
+      const cx = Math.round(CW*0.33), cy = Math.round(roofH*0.28);
+      const ch = Math.round(roofH*0.40);
+      px(g,cx,cy,9,ch,'#8d5f4a');
+      px(g,cx,cy,2,ch,'#a2735c'); px(g,cx+7,cy,2,ch,'#6a4535');
+      px(g,cx-1,cy,11,3,'#6a4535');
+    }
+  });
+}
+function domeSpr(){
+  return spr('dome', 80, 112, (g)=>{
+    px(g,16,46,48,62,'#cfd3d8');
+    for(let x=16;x<64;x+=6) px(g,x,46,1,62,'#b4b9bf');
+    px(g,16,46,48,2,'#e6eaee');
+    px(g,14,100,52,8,'#8a8a92');
+    px(g,30,76,20,30,'#4a3521'); px(g,32,78,16,28,'#7a4f2c'); px(g,44,92,2,3,'#f0c860');
+    px(g,24,56,12,12,'#4a3521'); px(g,26,58,8,8,'#f3cf86');
+    px(g,46,56,12,12,'#4a3521'); px(g,48,58,8,8,'#f3cf86');
+    pell(g,40,46,30,22,'#7f8d9c'); pell(g,40,44,26,19,'#94a3b2');
+    pell(g,32,36,10,6,'#aab8c6');
+    px(g,22,44,36,3,'#5f6b78');
+    /* open slit + telescope */
+    px(g,36,22,9,24,'#232029');
+    px(g,38,18,6,16,'#d8dde2'); px(g,40,10,3,10,'#aeb6bf');
+    px(g,37,16,9,3,'#5f6b78');
+    px(g,38,4,8,4,'#4a525c');
+  });
+}
+function fountainSpr(){
+  return spr('fountain', 48, 44, (g)=>{
+    const st=P.stone, stD=shade(st,-26), stL=shade(st,18);
+    pell(g,24,34,22,9,stD);                      /* outer basin */
+    pell(g,24,32,21,8,st);
+    pell(g,24,31,18,6,stL);
+    pell(g,24,32,16,5,'#4f8fc4');                /* water */
+    pell(g,24,31,13,4,'#7ab6e0');
+    for(let i=0;i<7;i++){ const a=i*0.9; pell(g,24+Math.cos(a)*9,31+Math.sin(a)*3,1,1,'#cfe9f8'); }
+    px(g,20,16,8,14,st); px(g,20,16,2,14,stL); px(g,26,16,2,14,stD);
+    pell(g,24,15,10,4,stD); pell(g,24,14,9,3,st);
+    pell(g,24,12,9,3,'#5e9fd1'); pell(g,24,11,6,2,'#9cc9e8');
+    px(g,23,6,2,6,'#8dc3e4'); px(g,22,4,4,3,'#c2e2f5');
+    for(let i=0;i<5;i++){ const a=i*1.25+0.3;
+      px(g,24+Math.cos(a)*11, 18+Math.abs(Math.sin(a))*7, 1,3,'#9cc9e8'); }
+    px(g,4,40,40,3,'rgba(0,0,0,.16)');
+  });
+}
+function bannerSpr(col){
+  return spr('banner'+col, 14, 30, (g)=>{
+    px(g,6,0,2,30,'#5a4a3a');
+    px(g,8,2,6,16,col); px(g,8,18,2,3,col); px(g,12,18,2,3,col);
+    px(g,8,2,6,2,shade(col,22));
+  });
+}
+/* ============================================================ PART C */
+const map = [], solid = [], busy = [];      /* busy = don't scatter decor here */
+const objs = [];
+let GROUND = null, MINI = null;
+
+function inB(x,y){return x>=0&&y>=0&&x<MW&&y<MH;}
+function setT(x,y,t){ if(inB(x,y)) map[y][x]=t; }
+function getT(x,y){ return inB(x,y)?map[y][x]:T.DARK; }
+function mark(x,y,w,h,sol){
+  for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) if(inB(i,j)){ busy[j][i]=1; if(sol) solid[j][i]=1; }
+}
+
+function carve(points, w, tile){
+  for(let i=0;i<points.length-1;i++){
+    let [x1,y1]=points[i], [x2,y2]=points[i+1];
+    if(x1===x2){
+      for(let y=Math.min(y1,y2); y<=Math.max(y1,y2); y++)
+        for(let k=0;k<w;k++){ setT(x1+k,y,tile); busy[y][x1+k]=1; }
+    } else {
+      for(let x=Math.min(x1,x2); x<=Math.max(x1,x2); x++)
+        for(let k=0;k<w;k++){ setT(x,y1+k,tile); busy[y1+k][x]=1; }
+    }
+  }
+}
+
+function addObj(o){
+  o.w=o.w||1; o.h=o.h||1;
+  objs.push(o);
+  mark(o.x,o.y,o.w,o.h, o.solid!==false);
+  if(o.pad) mark(o.x-o.pad,o.y-o.pad,o.w+o.pad*2,o.h+o.pad*2,false);
+}
+
+const BUILDINGS = {};
+function genWorld(){
+  for(let y=0;y<MH;y++){ map[y]=[]; solid[y]=[]; busy[y]=[];
+    for(let x=0;x<MW;x++){ map[y][x]=T.GRASS; solid[y][x]=0; busy[y][x]=0; } }
+
+  /* ---- lake (north-east) ---- */
+  for(let y=0;y<MH;y++) for(let x=0;x<MW;x++){
+    const dx=(x-60)/11, dy=(y-9)/6.5, d=dx*dx+dy*dy;
+    if(d<1) setT(x,y,T.WATER); else if(d<1.35) setT(x,y,T.SAND);
+  }
+  /* ---- river running south from the lake ---- */
+  for(let y=12;y<MH;y++){
+    const cx = Math.round(58 + Math.sin(y*0.17)*3.5 - (y-12)*0.06);
+    for(let k=-2;k<=2;k++) setT(cx+k,y,T.WATER);
+    setT(cx-3,y,T.SAND); setT(cx+3,y,T.SAND);
+  }
+  for(let y=0;y<MH;y++) for(let x=0;x<MW;x++) if(map[y][x]===T.WATER) solid[y][x]=1;
+
+  /* ---- roads (carved first, so the plaza can be laid over them) ---- */
+  carve([[41,30],[18,30]], 2, T.DIRT);                       /* west street → workshop */
+  carve([[32,27],[18,27],[18,19]], 2, T.DIRT);               /* to scriptorium */
+  carve([[34,26],[34,20]], 2, T.DIRT);                       /* north → town hall */
+  carve([[36,26],[48,26],[48,18]], 2, T.DIRT);               /* north-east → observatory */
+  carve([[35,33],[35,37],[47,37]], 2, T.DIRT);               /* south-east → inn */
+  carve([[47,39],[47,44],[64,44],[64,40]], 2, T.DIRT);       /* east → bridge → mine */
+  carve([[31,33],[31,46],[14,46]], 2, T.DIRT);               /* south road → farm & well */
+  carve([[29,46],[29,49]], 2, T.DIRT);                       /* farm spur */
+
+  /* ---- plaza, laid over the junction ---- */
+  for(let y=26;y<=34;y++) for(let x=29;x<=41;x++){
+    const edge = (y===26||y===34||x===29||x===41);
+    setT(x,y, edge||(x+y)%9===0 ? T.STONE : T.PLAZA); busy[y][x]=1;
+  }
+
+  /* ---- bridge where the east road meets the river ---- */
+  for(let y=43;y<=46;y++) for(let x=48;x<=62;x++)
+    if(map[y][x]===T.WATER || map[y][x]===T.SAND){ setT(x,y,T.BRIDGE); solid[y][x]=0; busy[y][x]=1; }
+  for(let x=48;x<=62;x++){
+    if(map[42][x]===T.BRIDGE||map[43][x]===T.BRIDGE){
+      addObj({t:'fence',v:0,x:x,y:42,solid:false,deco:true});
+      addObj({t:'fence',v:0,x:x,y:47,solid:false,deco:true});
+    }
+  }
+
+  /* ---- buildings ---- */
+  function build(id, key, x, y, wT, hT, o, sprMaker){
+    BUILDINGS[id] = {id,key,x,y,w:wT,h:hT,spr:sprMaker||(()=>houseSpr(key,wT,hT,o))};
+    const W=wT*16, roofH=Math.min(Math.round(W*0.42),46), CW=W+16;
+    addObj({t:'house', id:id, x:x, y:y, w:wT, h:hT, pad:2, solid:true,
+            smoke: (o && o.smoke!==false)
+              ? {x: x*16 - 8 + Math.round(CW*0.33) + 4, y: y*16 - roofH + 6 + Math.round(roofH*0.28)}
+              : null});
+  }
+  build('workshop','b_work', 16,24, 6,4, {wall:'#c9a06a', roof:'#b05a3c', door:'#6f4324', win:2});
+  build('scriptorium','b_scr', 15,13, 6,4, {wall:'#bfc6d4', roof:'#4a6fa5', door:'#43356a', win:3, floors:2});
+  build('townhall','b_hall', 29,13, 9,5, {wall:'#e2d6b4', roof:'#3f6b8a', door:'#5a4a2a', win:4, floors:2});
+  build('inn','b_inn', 43,31, 8,5, {wall:'#d8a86e', roof:'#9a3f52', door:'#5c3320', win:3, floors:2});
+  build('cottage','b_cot', 26,43, 5,4, {wall:'#d6c49a', roof:'#6a8a4a', door:'#7a4f2c', win:2});
+  BUILDINGS.observatory = {id:'observatory', x:45, y:11, w:5, h:7, spr:domeSpr};
+  addObj({t:'house', id:'observatory', x:45, y:11, w:5, h:7, pad:2, solid:true, smoke:null});
+  BUILDINGS.mine = {id:'mine', x:61, y:33, w:6, h:4, spr:mineSpr};
+  addObj({t:'house', id:'mine', x:61, y:33, w:6, h:4, pad:2, solid:true, smoke:null});
+  BUILDINGS.well = {id:'well', x:13, y:41, w:3, h:3, spr:wellSpr};
+  addObj({t:'house', id:'well', x:13, y:41, w:3, h:3, pad:2, solid:true, smoke:null});
+
+  /* ---- farm: tilled soil + crops + fence ---- */
+  for(let y=42;y<=51;y++) for(let x=19;x<=33;x++) if(inB(x,y)) busy[y][x]=1;
+  for(let y=44;y<=49;y++) for(let x=20;x<=25;x++){ setT(x,y,T.SOIL); busy[y][x]=1; }
+  for(let y=44;y<=49;y++) for(let x=20;x<=25;x++)
+    if((x+y)%2===0) addObj({t:'crop', v:(x+y)%3, x:x, y:y, solid:false});
+  for(let x=19;x<=33;x++){
+    if(map[42][x]!==T.DIRT) addObj({t:'fence',v:0,x:x,y:42,solid:true});
+    if(map[51][x]!==T.DIRT) addObj({t:'fence',v:0,x:x,y:51,solid:true});
+  }
+  for(let y=43;y<=50;y++){
+    if(map[y][19]!==T.DIRT) addObj({t:'fence',v:1,x:19,y:y,solid:true});
+    if(map[y][33]!==T.DIRT) addObj({t:'fence',v:1,x:33,y:y,solid:true});
+  }
+  addObj({t:'barrel',x:32,y:44,solid:true}); addObj({t:'crate',x:32,y:45,solid:true});
+  addObj({t:'crate',x:26,y:48,solid:true});
+
+  /* ---- plaza dressing ---- */
+  addObj({t:'lamp',x:30,y:27,solid:true}); addObj({t:'lamp',x:40,y:27,solid:true});
+  addObj({t:'lamp',x:30,y:33,solid:true}); addObj({t:'lamp',x:40,y:33,solid:true});
+  addObj({t:'fountain',x:34,y:29,solid:true,w:2,h:2,pad:1});
+  addObj({t:'banner',v:'#9a3f52',x:44,y:36,solid:false});
+  addObj({t:'banner',v:'#4a6fa5',x:50,y:36,solid:false});
+  addObj({t:'lamp',x:46,y:38,solid:true}); addObj({t:'lamp',x:49,y:38,solid:true});
+  addObj({t:'barrel',x:21,y:29,solid:true}); addObj({t:'crate',x:22,y:29,solid:true});
+  addObj({t:'stump',x:23,y:31,solid:true});
+  addObj({t:'crate',x:60,y:38,solid:true}); addObj({t:'barrel',x:59,y:39,solid:true});
+  addObj({t:'lamp',x:17,y:19,solid:true}); addObj({t:'lamp',x:48,y:19,solid:true});
+  addObj({t:'lamp',x:33,y:21,solid:true}); addObj({t:'lamp',x:36,y:21,solid:true});
+
+  /* ---- flower beds ---- */
+  const beds = [[27,21],[42,21],[26,36],[44,28],[17,33],[12,38],[55,30],[36,48],[52,20]];
+  for(const [bx,by] of beds)
+    for(let y=by;y<by+3;y++) for(let x=bx;x<bx+4;x++)
+      if(inB(x,y)&&!busy[y][x]&&map[y][x]===T.GRASS) setT(x,y,T.FLOWER);
+
+  /* ---- signposts ---- */
+  SIGNS.forEach(s => addObj({t:'sign', x:s.x, y:s.y, solid:true, sign:s}));
+
+  /* ---- keep a clearing around each neighbour ---- */
+  for(const n of NPCS) mark(n.x-2, n.y-2, 5, 5, false);
+
+  /* ---- forest border + scatter ---- */
+  for(let y=0;y<MH;y++) for(let x=0;x<MW;x++){
+    if(busy[y][x] || map[y][x]!==T.GRASS) continue;
+    const edge = Math.min(x, y, MW-1-x, MH-1-y);
+    const n = hash2(x*3+1, y*5+2);
+    let density = edge<2 ? 1 : edge<5 ? 0.55 : edge<8 ? 0.2 : 0.055;
+    /* thicken the untracked corners so the valley feels enclosed */
+    if(x<12 && y<12) density = Math.max(density, .35);
+    if(x>62 && y>48) density = Math.max(density, .3);
+    if(n < density){
+      if(edge<4) setT(x,y,T.DARK);
+      const k = hash2(x*7, y*11);
+      if(k<0.62) addObj({t:'tree', v:(k*1000|0)%5, x, y, solid:true});
+      else if(k<0.78) addObj({t:'pine', x, y, solid:true});
+      else if(k<0.88) addObj({t:'bush', v:(k*50|0)%2, x, y, solid:false});
+      else if(k<0.95) addObj({t:'rock', v:k<0.92?0:1, x, y, solid:true});
+      else addObj({t:'stump', x, y, solid:true});
+    } else if(n < density+0.05){
+      setT(x,y,T.FLOWER);
+    }
+  }
+
+  /* ---- prerender static ground + minimap ---- */
+  GROUND = cvs(MW*TS, MH*TS);
+  const g = GROUND.getContext('2d'); g.imageSmoothingEnabled=false;
+  MINI = cvs(MW, MH);
+  const mg = MINI.getContext('2d');
+  const MC = {0:'#5f9e4e',1:'#b08a5e',2:'#9aa2aa',3:'#3b76ad',4:'#dcc78f',
+              5:'#7a5236',6:'#9a6f42',7:'#3c6b36',8:'#6aa85a',9:'#8a9199'};
+  for(let y=0;y<MH;y++) for(let x=0;x<MW;x++){
+    const t = map[y][x], name = TNAME[t];
+    if(t===T.WATER) g.drawImage(WATER_FRAMES[0][(hash2(x,y)*3)|0], x*TS, y*TS);
+    else { const set=TILESET[name]; g.drawImage(set[(hash2(x*2,y*2)*set.length)|0], x*TS, y*TS); }
+    mg.fillStyle = MC[t]; mg.fillRect(x,y,1,1);
+  }
+  for(const o of objs){
+    if(o.t==='tree'||o.t==='pine'){ mg.fillStyle='#35682f'; mg.fillRect(o.x,o.y,1,1); }
+    if(o.t==='house'){ mg.fillStyle='#d8a86e'; mg.fillRect(o.x,o.y,o.w,o.h); }
+  }
+}
+/* ============================================================ PART D */
+const REGIONS = [
+  {n:'Riverstone Plaza',      x:27,y:24,w:17,h:13},
+  {n:'Your Farm',             x:18,y:41,w:17,h:12},
+  {n:"Wren's Hollow",         x:8, y:36,w:12,h:14},
+  {n:"Mira's Workshop",       x:13,y:21,w:11,h:11},
+  {n:'Scribe Row',            x:12,y:10,w:13,h:12},
+  {n:'Town Hall Green',       x:27,y:11,w:14,h:12},
+  {n:'Stargazer Hill',        x:42,y:9, w:13,h:13},
+  {n:'Lantern Row',           x:41,y:28,w:14,h:13},
+  {n:'Eastbridge',            x:46,y:41,w:14,h:9},
+  {n:'Risk Ridge',            x:58,y:30,w:13,h:15},
+  {n:'Greenwood',             x:0, y:0, w:MW,h:MH},
+];
+function regionAt(tx,ty){
+  for(const r of REGIONS) if(tx>=r.x&&ty>=r.y&&tx<r.x+r.w&&ty<r.y+r.h) return r.n;
+  return 'Product Valley';
+}
+
+const SIGNS = [
+  {x:33,y:35, title:'RIVERSTONE PLAZA', lines:[
+    "Carved into the post, under the moss:",
+    "“Great products start with problems, not solutions.”",
+    "Someone has scratched underneath: *and we still forget, every single quarter.*"]},
+  {x:19,y:32, title:'WORKSHOP LANE', lines:[
+    "Mira's board. A list of things built this season, each with a line through it.",
+    "At the bottom: “Good joints. Wrong furniture.”"]},
+  {x:16,y:46, title:'THE SOUTH ROAD', lines:[
+    "A weathered arrow points west, to the well.",
+    "“Ask why until the answer stops changing what you would do.”"]},
+  {x:46,y:45, title:'EASTBRIDGE', lines:[
+    "Nailed to the bridge rail:",
+    "“Cross one plank at a time. Proof of concept. Proof of value. Scale. Maturity.”",
+    "“Nobody drowned walking. Plenty drowned jumping.”"]},
+  {x:44,y:22, title:'STARGAZER PATH', lines:[
+    "“An output is what you made.”",
+    "“An outcome is what moved because you made it.”",
+    "“You get celebrated for the first and judged on the second.”"]},
+  {x:28,y:49, title:'YOUR PLOT', lines:[
+    "Your own noticeboard. Blank, apart from a note in your handwriting:",
+    "“Stop shipping things that do not land.”",
+    "That is why you came. Press J any time to read what you have collected."]},
+];
+
+/* ---------------- field cards (journal) ---------------- */
+const CARDS = {
+  c1:{ n:'Field Card 01 — Problem, or Solution?', by:'from Mira the Joiner', html:`
+    <p><b>The Swap Test.</b> Swap the proposed thing for a different thing. Does the sentence still read as a sensible goal?</p>
+    <p>If yes, you are holding a <b>solution</b> — and both versions are answers to a question nobody wrote down. That unwritten question is your problem.</p>
+    <p><b>Red-flag phrasings</b></p>
+    <ul><li>“We need a ___”</li>
+      <li>“We <b>lack</b> a ___” — absence framed as affliction, the best disguise there is</li>
+      <li>“Users are <b>asking for</b> ___” — real signal, but it is their proposed fix, not their pain</li>
+      <li>“Let's just add ___” / “The problem is we don't have ___”</li></ul>
+    <p><b>The tell:</b> if you can put it on a ticket, it is a solution. If you can measure how much it hurts, it is a problem.</p>
+    <p><b>The recovery move — “so that what?”</b></p>
+    <div class="mono">“We need an AI chatbot”<br>
+      &nbsp;&nbsp;↳ so that what? → so people stop waiting for an agent<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;↳ so that what? → so they solve it themselves at 2am<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↳ so that what? → so they don't churn before week two</div>
+    <p>Stop when you reach something <b>measurable you would accept being judged on</b>. That is the outcome. The step just before it is usually the real problem.</p>
+    <p class="note">Catching a solution in the problem slot does not make it the wrong solution. Used as a veto this makes you tiresome; used as a question it makes you useful.</p>`},
+
+  c2:{ n:'Field Card 02 — The Five Whys', by:'from Old Wren at the well', html:`
+    <p>Take the symptom. Ask why. Ask it of the answer. Five times is a rule of thumb, not a law — <b>stop when the next why stops changing what you would do.</b></p>
+    <div class="mono">Only 8% who start onboarding finish it<br>
+      ↳ why? they stop at the API-key step<br>
+      ↳ why? they have no key and can't tell where to get one<br>
+      ↳ why? keys are issued from a separate admin console<br>
+      ↳ why? that console was built for enterprise admins; self-serve was never a case<br>
+      ↳ why? nobody owned the self-serve path after the product split in two</div>
+    <p><b>Three rules for a good why</b></p>
+    <ul><li>It names a <b>mechanism</b>, not a person. “Engineers were careless” is a dead end — you cannot fix a person, and they stop telling you things.</li>
+      <li>You can point at <b>evidence</b> for it, not just agreement in the room.</li>
+      <li>Each why causes the one above it. A list of grievances is not a chain.</li></ul>
+    <p><b>Choosing the level to fix.</b> The root cause is not automatically the thing you fix. Fix the <b>deepest cause you can actually move</b> — the lowest rung still in your hands that still shifts the outcome — and put the rest in writing so somebody who can reach it, can see it.</p>`},
+
+  c3:{ n:'Field Card 03 — The Four Cs', by:'from Scribe Pell', html:`
+    <p>A problem statement a stranger with money would accept in thirty seconds.</p>
+    <ul>
+      <li><b>Clarity</b> — who, doing what, where, how often, in plain words. No solution smuggled inside. If a stranger cannot picture it, you have not got it.</li>
+      <li><b>Consequence</b> — what it costs to leave alone: time, money, risk, trust. No consequence, no project, and that is a fine answer too.</li>
+      <li><b>Cause</b> — the diagnosed cause, not a guess. This is the bucket you pulled out of the well.</li>
+      <li><b>Confirmation</b> — the evidence it is real, and what you would accept as proof it is fixed. Decide that <b>now</b>, while you can still be honest about it.</li>
+    </ul>
+    <div class="mono">61% of new users abandon onboarding at the API-key step (clarity),<br>
+      costing ~340 activated accounts a month (consequence),<br>
+      because keys are issued only from a separate admin console (cause).<br>
+      Fixed means key-step completion 39% → 60% in six weeks, same cohort (confirmation).</div>
+    <p class="note">Honesty note: the source names these four words inside a graphic and never spells them out in text. This is a reconstruction from the framework's name, its stated aim of a <em>data-backed</em> statement, and ordinary practice — a working version, not scripture.</p>`},
+
+  c4:{ n:'Field Card 04 — Metrics That Mean Something', by:'from Tilda the Surveyor', html:`
+    <p><b>Output</b> is what you made. <b>Outcome</b> is what moved because you made it. “The engine shipped, 99.9% uptime” is output — nothing in it says anything changed for anyone.</p>
+    <p><b>SMART:</b> specific, measurable, achievable, relevant, time-bound. “Improve activation” is a mood. “Key-step completion 39% → 60% by 31 March, same cohort definition” is a metric.</p>
+    <p><b>Leading vs lagging</b></p>
+    <ul><li><b>Lagging</b> — tells the truth, late. Revenue, churn, retained accounts. By the time it moves, the cause is months old.</li>
+      <li><b>Leading</b> — moves first, noisier. Time to first successful API call, day-1 return rate, share of sessions resolved without a ticket.</li></ul>
+    <p>You need both. Lead alone and you optimise a signal that never pays. Lag alone and you learn you were wrong a quarter after you could have fixed it.</p>
+    <p><b>Value–Cost Ratio.</b> Not “is this valuable” — everything is valuable. <b>Is this the most value per unit of effort on the table?</b> A 1.5% lift in three weeks beats a 2% lift in six engineer-months, and it pays you the information sooner.</p>`},
+
+  c5:{ n:'Field Card 05 — The Riskiest Assumption', by:'from Bram at Risk Ridge', html:`
+    <p>Every plan is a stack of things believed without evidence. Most are harmless. One of them, wrong, makes the whole thing worthless. Go after <b>that</b> one.</p>
+    <p><b>Where risk hides</b></p>
+    <ul><li><b>Value risk</b> — will anyone actually want this, or change behaviour for it?</li>
+      <li><b>Feasibility risk</b> — can it be built, with our data, at this accuracy, for this cost?</li>
+      <li><b>Team / organisational risk</b> — can we operate it, and will the people whose jobs it changes actually use it?</li></ul>
+    <p>Teams test feasibility first because it is the fun one. <b>Value risk kills more projects.</b></p>
+    <p><b>The ladder — never jump a rung</b></p>
+    <div class="mono">Proof of concept → does it work at all<br>
+      Proof of value &nbsp;→ does it change behaviour for real users<br>
+      Scale &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ does it hold up for everyone<br>
+      Maturity &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ can it be run without heroics</div>
+    <p><b>The standard.</b> A team wanted to know whether nudging people would raise health-screening bookings. No app, no platform — a web form and a spreadsheet, two groups. Control booked <b>zero</b>. Treatment booked <b>24</b>. They bought the whole truth of it for about a day's work.</p>
+    <p>So the question is never “what is the smallest version of my solution?” It is <b>“what is the cheapest thing that could prove me wrong?”</b></p>`},
+
+  c6:{ n:'Field Card 06 — Eleven Stars', by:'from Nura of the Starlight Inn', html:`
+    <p><b>Five stars is expectation exactly met.</b> You arrive, the key works, the room is clean. Invisible. Nobody ever tells that story.</p>
+    <p>So keep climbing past it — six, seven, nine, eleven — until it is frankly absurd. The absurd end is not a roadmap. It is a <b>crowbar</b>: it breaks you out of “make it 10% better” and shows you a dimension you would never have costed. Then you walk back and ask which rung is actually buildable. Usually six or seven — and you would never have found it from five.</p>
+    <p class="note">The exercise comes from Brian Chesky at Airbnb.</p>
+    <p><b>The hard case: services people cannot opt out of.</b> Tax. Permits. The one tool the job requires.</p>
+    <ul><li>Usage tells you almost nothing. 100% adoption under compulsion is not preference.</li>
+      <li>They will not complain — they will quietly route around you. Look for shadow spreadsheets, workarounds, time-on-task, support traffic.</li>
+      <li>Delight cannot drive adoption, so <b>make the default path the good path</b>.</li>
+      <li>When you trade something away — flexibility for simplicity, scope for speed — <b>say so, in writing, with the condition under which you would revisit it.</b> An undeclared tradeoff reads as incompetence. A declared one reads as judgement.</li></ul>`},
+
+  c7:{ n:'Field Card 07 — The Three Shifts', by:'from Mayor Hale', html:`
+    <p><b>From solutions to problems.</b> You stop accepting a build as a brief.</p>
+    <p><b>From outputs to outcomes.</b> You stop reporting what you made and start reporting what moved.</p>
+    <p><b>From one big launch to staged delivery.</b> You stop betting the year and start buying information.</p>
+    <p class="note">Everything else on these cards is machinery for those three.</p>`},
+};
+
+/* ---------------- the neighbours ---------------- */
+const NPCS = [
+  {
+    id:'mira', name:'MIRA THE JOINER', role:'the Swap Test', card:'c1',
+    x:19, y:30, dir:0,
+    pal:{skin:'#d99b6c',hair:'#8a3f2a',shirt:'#c4653f',pants:'#4a3b2e',hat:'#6a4a2e'},
+    intro:[
+      "Afternoon. You'll be the one taking the valley plot. Mind the sawdust.",
+      "I've built four things this season. Good joints. Square edges. Completely the wrong furniture.",
+      "That's how work dies around here. Not bad carpentry — <b>good</b> carpentry, aimed at the wrong wall.",
+      "And it always starts the same way. Someone says a sentence that <em>sounds</em> like a problem, everyone nods, and it becomes the order slip.",
+      "<em>“We need an AI chatbot on the help centre.”</em> Nobody lied. It might even be right. But look what just happened — there's a thing to build and no account of what's actually wrong.",
+      "Every decision after that inherits the gap. Scope. Budget. What counts as done.",
+      "So here's the only tool I'll give you today, and it costs nothing. One swap.",
+      "<b>Swap the proposed thing for a different thing. Does the sentence still read as a sensible goal?</b>",
+      "Try it on the chatbot. “We need better docs.” “We need a phone line.” “We need a search box.” All still read as goals.",
+      "So the chatbot was never the problem. It was one candidate answer, promoted to brief without a contest.",
+      "Now a real one. <em>“Support agents open four internal tools to answer one customer question.”</em> Nothing swaps in. It just describes the world as it is.",
+      "The tell, if you forget everything else: <b>if you can put it on a ticket, it's a solution. If you can measure how much it hurts, it's a problem.</b>",
+      "Six statements. Call each one. And decide before you answer — guessing and then reading the answer teaches you nothing that lasts."],
+    quiz:[
+      {q:"“Support agents open four internal tools to answer one customer question.”",
+       o:[{t:"Problem",c:1,f:"Nothing swaps in — it describes the world as it is, and you could measure it: tools opened, handle time. This is the raw material a solution gets built on."},
+          {t:"Solution",f:"Try the swap. What would you substitute for “four internal tools”? Nothing — it isn't a proposal, it's an observation. And it's measurable. That makes it a problem."}]},
+      {q:"“We need an AI chatbot on the help centre.”",
+       o:[{t:"Problem",f:"It's phrased as a need, and that's the disguise. But swap in “better docs” or “a phone line” and it still reads as a goal — so it's one candidate answer, not the problem."},
+          {t:"Solution",c:1,f:"Right. “We need a ___” is the most common disguise there is. It may still be the correct build — you just can't know that yet."}]},
+      {q:"“Sixty-one per cent of new users abandon onboarding at the API-key step and never return.”",
+       o:[{t:"Problem",c:1,f:"Yes — and note it arrives with a number attached. A problem you can size is a problem you can later prove you solved."},
+          {t:"Solution",f:"There's no proposed thing here to swap out. Just an observation with a measurement on it. That's a problem, and an unusually well-evidenced one."}]},
+      {q:"“We lack a recommendation engine.”",
+       o:[{t:"Problem",f:"The hardest disguise in the set. “Lack” makes an absence sound like an affliction — but swap in “a curated homepage” or “better search” and it reads the same. Not having a thing is never a problem; what that costs you is."},
+          {t:"Solution",c:1,f:"Well spotted — that's the subtlest one. “We lack X” frames an absence as an affliction, which makes a solution sound like a diagnosis."}]},
+      {q:"“Customers keep asking us for a mobile app.”",
+       o:[{t:"Problem",f:"The demand is real data — but “mobile app” is the customers' proposed fix, not their pain. Swap in “a mobile site” and nothing breaks. Ask what they're trying to do when they reach for a phone."},
+          {t:"Solution",c:1,f:"Correct, and this one gets waved through constantly because it carries evidence. The demand is real; the diagnosis is still missing. People report solutions far more readily than they report problems."}]},
+      {q:"“Analysts spend the first two hours of every month rekeying figures between two systems.”",
+       o:[{t:"Problem",c:1,f:"Yes — observable, measurable, and it names no build. Notice an obvious solution hovering nearby. Resisting it long enough to ask why the two systems disagree is the whole discipline."},
+          {t:"Solution",f:"There's an obvious fix hovering nearby — integrate the systems — but the sentence itself proposes nothing. It just reports what happens. That's a problem."}]}],
+    outro:[
+      "Catching it is only half. Now the way back — and you need one that doesn't make you the person who blocks the meeting.",
+      "Walk it backwards with <b>“so that what?”</b> You're not rejecting the idea. You're asking what it's for.",
+      "<em>“We need an AI chatbot”</em> → so people stop waiting for an agent → so they can solve it themselves at 2am → so they don't churn before week two.",
+      "Stop when you reach something <b>measurable you'd accept being judged on</b>. That's the outcome. The step just before it is usually the real problem.",
+      "And hear me on this: catching a solution in the problem slot does <em>not</em> make it the wrong solution. The chatbot may be exactly right. You just can't know yet, and you've skipped the step where you'd find out.",
+      "Used as a veto, this test will make you tiresome. Used as a question, it makes you useful. Take the card."],
+    after:["Still sweeping sawdust. Run the swap on anything you hear today — it gets faster, and then it gets automatic.",
+      "If you want the harder version: catch yourself doing it. That's where it actually pays."]
+  },
+  {
+    id:'wren', name:'OLD WREN', role:'the Five Whys', card:'c2',
+    x:14, y:46, dir:0,
+    pal:{skin:'#cfa07a',hair:'#d8d4cc',shirt:'#5b6b8a',pants:'#3b3b45'},
+    intro:[
+      "You came down the south road. Good. Most walk straight past this well — it's the only one in the valley that gives back nothing but questions.",
+      "Mira taught you to walk <em>backwards</em>, from a solution to its purpose. Today you go <b>down</b>. Symptom to cause.",
+      "Drop a bucket, ask why. Drop another into the answer. And don't stop at the first one that lets everybody off the hook.",
+      "Symptom on the board: <b>only 8% of the people who start our onboarding ever finish it.</b>",
+      "Why? → They stop at the API-key step.<br>Why? → They have no key, and can't tell where to get one.",
+      "Why? → Keys are issued from a separate admin console.<br>Why? → That console was built for enterprise admins; self-serve users were never a case it handled.",
+      "Why? → Nobody owned the self-serve path after the product split into two teams.",
+      "Five whys, one chain. Notice what's <em>not</em> in it: “the engineers were careless.” A why that names a person is a dead end. You can't fix a person, and they stop telling you things.",
+      "Notice too where it landed — on how the work is <em>organised</em>. That's usually where these end up.",
+      "Now the part people skip, and it's the part that matters. <b>The root cause is not automatically the thing you fix.</b>",
+      "Four questions. Drop the bucket."],
+    quiz:[
+      {q:"Symptom: “Our weekly report goes out two days late, every week.” Which is the better first <em>why</em>?",
+       o:[{t:"Because the team doesn't care about deadlines",f:"That's blame wearing a why's clothes. It names a person, not a mechanism — and the moment you say it out loud, the people who know what's actually happening stop talking to you."},
+          {t:"Because the warehouse data doesn't land until Wednesday night",c:1,f:"Yes. Observable, causal, and it invites the next why: and why is that? You can keep pulling on this one."},
+          {t:"Because we need to automate the report",f:"Run Mira's swap on it — “we need a dashboard”, “we need an analyst” — all still read as goals. That's a solution, not a why. The chain hasn't started."}]},
+      {q:"How do you know a <em>why</em> is solid enough to build on?",
+       o:[{t:"Everyone in the room agrees it's obviously true",f:"Agreement is cheap, and it's cheapest about the things nobody has checked. A room full of nodding is the single most common way a wrong root cause survives to the roadmap."},
+          {t:"You can point at evidence for it",c:1,f:"That's the bar. A why you can show a log, a ticket count, or five observed sessions for. Otherwise the chain is just a well-structured guess."},
+          {t:"It's the fifth one",f:"Position in the list proves nothing. Depth isn't the same as truth — you can get five whys deep into a story that was never checked."}]},
+      {q:"“Five Whys means you must ask exactly five.”",
+       o:[{t:"True — stop short and you've stopped early",f:"Five is a rule of thumb, and treating it as a quota is how people pad the chain with filler to reach the magic number."},
+          {t:"Five is a rule of thumb — stop when the next why stops changing what you'd do",c:1,f:"Exactly. Sometimes it's three. Sometimes it's seven. The test isn't the count, it's whether another why would change your next move."}]},
+      {q:"The chain ends at: “nobody owns the self-serve path since the re-org.” You're one PM with one quarter. What do you fix?",
+       o:[{t:"The root: propose merging the two teams",f:"Correct diagnosis, out of reach. You'll spend the quarter writing a memo about an org chart and finish with nothing shipped and 8% activation untouched."},
+          {t:"The symptom: add a progress bar so onboarding feels shorter",f:"Cosmetic. People aren't leaving because it feels long, they're leaving because they hit a wall they can't get past. You'd ship, report it, and nothing would move."},
+          {t:"The deepest rung you can reach: issue a self-serve key inside onboarding — and put the ownership gap in writing where someone who can move it will see it",c:1,f:"That's the move. Fix the deepest cause within your reach, and make the one above it visible rather than pretending you solved it. Both halves matter."}]}],
+    outro:[
+      "That last one is the whole lesson, and it's the one that takes years off people.",
+      "Diagnose all the way down. <b>Fix as deep as you can reach.</b> Write down what you couldn't reach, so it stops being invisible.",
+      "Take the lantern. You'll want light for the next bit — Pell will make you write it all down, and he's fussy about it."],
+    after:["The well's still full of questions. Come back if a chain of yours stops moving.",
+      "A trick, since you're here: say your chain out loud backwards. “Because X, therefore Y.” If it stops making sense, you've got a gap."]
+  },
+  {
+    id:'pell', name:'SCRIBE PELL', role:'the Four Cs', card:'c3',
+    x:18, y:19, dir:0,
+    pal:{skin:'#f0c49a',hair:'#2e2a30',shirt:'#6b4f9e',pants:'#3a3550'},
+    intro:[
+      "Keep your voice down, the ink's still wet.",
+      "So you've found the cause. Congratulations — it is worth nothing until somebody with money and no context agrees with you in thirty seconds.",
+      "The frame is the <b>Four Cs</b>. Before I teach it I owe you an honesty, and you should want it.",
+      "In the original, those four words sit inside a painted panel. The text around it never says them aloud. So what I give you is <em>reconstructed</em> — from the name, from the stated aim of a <em>data-backed</em> statement, and from practice.",
+      "Treat it as a working version, not scripture. If you ever get to read that panel yourself, correct me. I'd rather be corrected than quoted.",
+      "<b>Clarity.</b> Who, doing what, where, how often — in plain words, with no solution smuggled inside. If a stranger can't picture it, you haven't got it yet.",
+      "<b>Consequence.</b> What it costs to leave alone. Time, money, risk, trust. No consequence, no project — and that's a perfectly good answer.",
+      "<b>Cause.</b> The diagnosed cause, not a guess. That's the bucket you pulled out of Wren's well.",
+      "<b>Confirmation.</b> The evidence it's real, and what you'd accept as proof it's fixed. Decide that <em>now</em>, while you can still be honest about it. Afterwards you'll move the line, and so will everyone else.",
+      "Four questions. Mind the quill, it spits."],
+    quiz:[
+      {q:"“Users are frustrated with our onboarding.” Which C is most badly missing?",
+       o:[{t:"Clarity",c:1,f:"Yes. Who? At which step? How often? “Frustrated” isn't observable — it's an inference about a feeling. Nobody can picture this, so nobody can disagree with it either, which is why sentences like it survive so long."},
+          {t:"Cause",f:"Cause is missing too — but you can't even diagnose a cause yet, because nothing here is specific enough to have a cause. Clarity has to come first."},
+          {t:"Confirmation",f:"Also absent. But confirmation of <em>what</em>? You can't name proof for a statement this vague. Fix the clarity and the rest becomes possible."}]},
+      {q:"“61% of new users abandon onboarding at the API-key step, because keys are issued from a separate admin console. <em>We should build self-serve key issuance.</em>” What's wrong with it?",
+       o:[{t:"Nothing — it's specific, caused and evidenced",f:"The first three Cs are genuinely strong. But read the last sentence again — a build has been welded onto the diagnosis, and from here on nobody will evaluate any other option."},
+          {t:"A solution has been smuggled in at the end",c:1,f:"Exactly. Clarity, Cause and most of Confirmation are there, and then it quietly decides the answer. Keep the proposal — just keep it <em>below the line</em>, as one candidate, where it can still lose."},
+          {t:"It has no cause",f:"It has a good one: keys issued from a separate console. The problem is the sentence after it."}]},
+      {q:"Which of these is a <b>Consequence</b>?",
+       o:[{t:"“It's a bad experience for new users.”",f:"That's a judgement, not a cost. Nobody funds work on the strength of an adjective — and if challenged, you have nothing to put on the table."},
+          {t:"“Roughly 340 activated accounts a month, about $50k of ARR.”",c:1,f:"That's a consequence: a number, in a unit someone cares about, per unit of time. It also tells you how much the fix is allowed to cost."},
+          {t:"“We don't have self-serve key issuance.”",f:"Absence framed as affliction — Mira's trap, in a new coat. The missing feature is not the cost; what its absence <em>costs you</em> is."}]},
+      {q:"Best <b>Confirmation</b>?",
+       o:[{t:"“We'll know it worked when the feature ships.”",f:"That's an output, and the answer to it is always yes. You've written a test you cannot fail, which means you've written no test."},
+          {t:"“We'll know it worked when stakeholders are happy.”",f:"Unfalsifiable and political. Happiness moves with whatever else happened that quarter, and the person judging it is the person you're asking for budget."},
+          {t:"“Key-step completion rises from 39% to 60% within six weeks of launch, on the same cohort definition.”",c:1,f:"Yes — a number, a baseline, a deadline, and a stated cohort so nobody can quietly redefine the denominator later. That last clause is the one people forget, and it's the one that gets abused."}]}],
+    outro:[
+      "Good. Now write yours in one breath: <em>who</em> is doing <em>what</em>, how often, what it costs, why it happens, and what proof would settle it.",
+      "If you can't say it in a breath, you don't have a problem statement — you have a grievance with footnotes.",
+      "Take the quill. And remember the honesty note on the card. I'd rather you carried a reconstruction you can argue with than a quote you can't check."],
+    after:["Mind the ink. If you want, say your problem statement aloud to me and I'll tell you which C is thin — it's always one of them.",
+      "Nine times out of ten it's Confirmation. People write it last, when they already know what they want it to say."]
+  },
+  {
+    id:'tilda', name:'TILDA THE SURVEYOR', role:'outcomes & metrics', card:'c4',
+    x:48, y:19, dir:0,
+    pal:{skin:'#8a5a3c',hair:'#1f1a1a',shirt:'#2f8f78',pants:'#2a4a44'},
+    intro:[
+      "Mind the step. From up here you can see the whole valley — which is the only honest way to measure anything.",
+      "Far enough back that the work itself stops looking impressive.",
+      "You shipped. Fine. <em>Did anything change?</em> That's a different question, and most teams never ask it, because the first one feels so much better.",
+      "An <b>output</b> is what you made. An <b>outcome</b> is what moved because you made it. You get celebrated for the first and judged on the second, and nobody tells you when the switch happens.",
+      "Make the metric <b>SMART</b> — specific, measurable, achievable, relevant, time-bound. “Improve activation” is a mood. “Key-step completion from 39% to 60% by 31 March” is a metric.",
+      "Then split it in two. A <b>lagging</b> indicator tells you the truth, late — revenue, churn, retained accounts. By the time it moves, the cause is months old.",
+      "A <b>leading</b> indicator moves first and lies more — time to first successful call, day-1 return rate.",
+      "You need both. Lead alone and you'll polish a signal that never pays. Lag alone and you'll find out you were wrong a quarter after you could have fixed it.",
+      "And one for choosing between things worth doing — the <b>value-to-cost ratio</b>. Not “is this valuable”. Everything is valuable. <em>Is this the most value per unit of effort on the table?</em>",
+      "Five questions. Look down at the valley, not at your own hands."],
+    quiz:[
+      {q:"Which of these is an <b>outcome</b> metric?",
+       o:[{t:"Number of features shipped this quarter",f:"Pure output. You can double it by shipping smaller features, which is exactly what teams measured this way start doing."},
+          {t:"Support tickets about key setup fall by 40%",c:1,f:"Yes — something in the world moved, and you'd have been glad of it even if a completely different build had caused it. That last part is the test."},
+          {t:"Model fine-tuned on internal documentation",f:"Output, and the worst kind: the answer is always yes. A metric you cannot fail is not a metric."}]},
+      {q:"“Monthly churn rate” — leading or lagging?",
+       o:[{t:"Leading",f:"Churn is downstream of everything. By the time a month of it has accumulated, the experience that caused it is long gone and probably shipped two releases ago."},
+          {t:"Lagging",c:1,f:"Right — it tells you the truth, late. Essential for knowing whether you were right. Useless for steering this week."}]},
+      {q:"“Share of new accounts making a successful API call on day one” — leading or lagging?",
+       o:[{t:"Leading",c:1,f:"Yes. It moves within a day of a change, so you can steer on it. It's noisier and it can mislead — but you'll know something is happening while you can still act."},
+          {t:"Lagging",f:"It moves within a day of your change, which is the definition of leading. The lagging twin of it would be retention at ninety days."}]},
+      {q:"Which of these is actually SMART?",
+       o:[{t:"“Significantly improve onboarding by end of year.”",f:"Not specific, not measurable, and “significantly” is doing all the work. At year end it will be argued about rather than checked."},
+          {t:"“Key-step completion from 39% to 60% by 31 March, same cohort definition.”",c:1,f:"Specific, measurable, time-bound, with a baseline and a fixed denominator. That last clause is what stops the metric quietly being redefined in week five."},
+          {t:"“Make onboarding best in class.”",f:"Whose class? Measured how? This is a slogan — and slogans survive review precisely because there's nothing in them to check."}]},
+      {q:"Option A: a 2% lift, six engineer-months. Option B: a 1.5% lift, three weeks. Which has the better value-to-cost ratio?",
+       o:[{t:"A — the bigger lift",f:"Bigger numerator, much bigger denominator. A is roughly 0.33% per engineer-month; B is about 2% per engineer-month. You've chosen the smaller ratio because it had the larger headline."},
+          {t:"B — far more value per unit of effort",c:1,f:"Yes, roughly eight times the value per unit of cost. And it pays in three weeks, so you learn whether you were right while you can still spend the rest of the quarter on being right."},
+          {t:"Can't say without knowing more",f:"A fair instinct, and in real life you'd ask. But with the numbers given, B returns about eight times the value per unit of cost — and returns it this month, which is itself worth something you haven't counted."}]}],
+    outro:[
+      "One more thing, and it's the one that saves careers. Pick your metric <em>before</em> you build, and write down the number you expect.",
+      "Pick it afterwards and you'll pick the one that moved. Everyone does. It isn't dishonesty, it's just how memory works on people who are tired and want to have been right.",
+      "Take the spyglass. Point it at the valley, not at the workbench."],
+    after:["Still up here. Bring me a metric and I'll tell you whether it's an outcome or a costume.",
+      "Quick test, no charge: if a rival team could make your number move without making anything better, it's the wrong number."]
+  },
+  {
+    id:'bram', name:'BRAM OF RISK RIDGE', role:'assumptions & risk', card:'c5',
+    x:64, y:39, dir:0,
+    pal:{skin:'#c98f63',hair:'#4a3326',shirt:'#9a5a2a',pants:'#3a3a3a',hat:'#5a4a3a'},
+    intro:[
+      "Don't go in. The shaft's sound. It's the <em>plan</em> that isn't.",
+      "Every plan is a stack of things you believe without evidence. Most are harmless. One of them, if it's wrong, makes the entire thing worthless.",
+      "That's the one you go after. Not the easy ones. The <b>riskiest assumption</b> — the one where being wrong costs you everything.",
+      "Three places they hide. <b>Value risk</b>: will anyone actually want this, or change what they do for it?",
+      "<b>Feasibility risk</b>: can it be built, with our data, at that accuracy, for that money?",
+      "<b>Team and organisational risk</b>: can we actually run it — and will the people whose jobs it changes use it, or route around it?",
+      "Teams test feasibility first, every time, because it's the fun one and it's the one we're good at. <b>Value risk kills more projects.</b>",
+      "Then you climb, one rung at a time. Proof of concept — does it work at all. Proof of value — does it change behaviour for real people. Then scale. Then maturity. <em>Never jump a rung.</em>",
+      "Best test I ever saw. A team wanted to know whether nudging people would raise health-screening bookings. No app. No platform. A web form and a spreadsheet, two groups.",
+      "Control group booked <b>nothing</b>. Zero. Treatment group booked <b>twenty-four</b>. They bought the whole truth of it for about a day's work.",
+      "That's the standard. Not “what's the smallest version of my solution” — <b>what's the cheapest thing that could prove me wrong?</b>",
+      "Four questions. Keep back from the edge."],
+    quiz:[
+      {q:"The plan: “Build an AI assistant that answers staff policy questions, so staff stop interrupting the HR team.” What's the riskiest assumption?",
+       o:[{t:"That the model can parse our policy PDFs accurately",f:"Feasibility risk — real, but testable in an afternoon, and rarely the thing that kills it. You'd find out cheaply and early either way."},
+          {t:"That staff will ask a machine instead of a colleague they already trust",c:1,f:"That's the one. If it's wrong, perfect accuracy buys you nothing — you'll have a flawless assistant nobody opens. Behaviour change is nearly always the riskiest line in the plan."},
+          {t:"That we can host it inside budget",f:"Worth knowing, but it's a constraint you can calculate this afternoon, and being wrong costs you a smaller model, not the project."}]},
+      {q:"What's the cheapest test that could actually kill that assumption?",
+       o:[{t:"Build an MVP covering the 50 most common questions, ship to one department",f:"Weeks of engineering before you learn the one thing that decides it. That's not a test, it's a small version of the bet."},
+          {t:"Survey staff: “would you use an AI assistant for policy questions?”",f:"They'll say yes. People always say yes, and then don't. Stated preference is not behaviour, and a survey that can only return “yes” isn't evidence."},
+          {t:"For two weeks, answer a Slack channel's policy questions yourself from the docs within minutes — and count whether traffic moves off the HR inbox",c:1,f:"A Wizard of Oz test. Days, not weeks, and it tests the exact thing in doubt: will people route a question somewhere new? If they won't do it for a fast human, they won't do it for a machine."}]},
+      {q:"Which of these is a <b>team or organisational</b> risk?",
+       o:[{t:"Retrieval accuracy may sit below 80% on our policy PDFs",f:"Feasibility. Measurable this week, and the fix is technical."},
+          {t:"HR's headcount case rests on handling that volume, so they may not route people to it",c:1,f:"Yes — and this is the one that gets left off the risk register because naming it is awkward. It is also, routinely, the one that actually sinks the project."},
+          {t:"Users may not trust the answers enough to act on them",f:"That's value and behaviour risk. Related, serious, but it sits with the user, not with how the organisation is arranged."}]},
+      {q:"Your proof of concept works — 200 test questions answered well. What's next?",
+       o:[{t:"Roll out to all 4,000 staff",f:"You've skipped a rung. All you know is that it can answer questions in a lab; you know nothing about whether anyone changes what they do. That's exactly where big launches go to die."},
+          {t:"Proof of value: put it in front of one real group and measure whether HR inbox volume actually falls",c:1,f:"Right. Works ≠ matters. Proof of value is the rung where most projects should die, which is precisely why it's the one people skip."},
+          {t:"Harden the infrastructure for scale and reliability",f:"Maturity work, two rungs early. You'd be making something robust before knowing whether it should exist."}]}],
+    outro:[
+      "Last thing, then I'll let you off the ridge.",
+      "Write your riskiest assumption as a sentence that could be <b>false</b>. “Clinicians will act on a suggestion they didn't ask for.” Now it can be tested. “We need clinician buy-in” can't be.",
+      "If you can't write the sentence that would prove you wrong, you haven't got a plan. You've got a wish with a budget.",
+      "Take the pick. Cheapest tool on the mountain, and it's the only one that's ever saved anyone a year."],
+    after:["Still not going in. Bring me a plan and I'll find the line that could be false.",
+      "And if someone tells you the riskiest part is the technology — check. It's usually whether anyone will change what they do on a Tuesday."]
+  },
+  {
+    id:'nura', name:'NURA OF THE STARLIGHT INN', role:'customer experience', card:'c6',
+    x:47, y:37, dir:0,
+    pal:{skin:'#a86b45',hair:'#3a2420',shirt:'#d0486a',pants:'#5a2f4a'},
+    intro:[
+      "Room's yours if you want it. Mind the cat, she's in a mood.",
+      "There's a thing innkeepers know that product people keep rediscovering with great excitement every five years: <b>adequate is invisible.</b> Nobody tells a story about adequate.",
+      "The exercise is Brian Chesky's, from Airbnb. Start with the five-star stay. You arrive, the key works, the room is clean.",
+      "That's the whole expectation, exactly met. And nobody ever mentions it again. Not once.",
+      "So keep going. Six stars: someone greets you by name with a drink already poured. Seven: a cart meets your boat.",
+      "Eight: your bag's unpacked before you reach the stairs. Nine: the mayor's at dinner. Ten: a parade. Eleven: you step off the boat, the whole village is there, and you simply never leave.",
+      "Most of that is nonsense, and the nonsense is the point.",
+      "The absurd end isn't a plan. It's a <b>crowbar</b>. It breaks you out of “make it ten per cent better” and shows you a <em>dimension</em> you'd never have costed.",
+      "Then you walk it back and ask which rung you can actually build. Usually six or seven — and you'd never have found it by starting from five.",
+      "Now the hard case, and it's the one your valley keeps getting wrong. Some services people <b>can't opt out of</b>. Tax. Permits. The one tool their job requires.",
+      "You get no signal from them. They can't leave, so they don't complain — they quietly route around you, and you never see it in the numbers.",
+      "So delight won't drive adoption, and you can't wait to be told. Four questions, then I want the room back."],
+    quiz:[
+      {q:"In the eleven-star exercise, what exactly is the <b>five-star</b> experience?",
+       o:[{t:"The best we could possibly do",f:"That's the trap the exercise exists to break. Five is the <em>baseline</em>, not the ceiling — treat it as the summit and you'll spend years polishing the thing nobody mentions."},
+          {t:"Expectation exactly met — and therefore invisible and forgettable",c:1,f:"Yes. The key works, the room is clean, nobody tells the story. Most product work ends here and then wonders why nothing moved."},
+          {t:"Whatever our competitors currently do",f:"That's parity, which is a different idea and a worse one. The five-star bar is the user's expectation, not the market's current average."}]},
+      {q:"What is the <b>eleven-star</b> step actually for?",
+       o:[{t:"It's a roadmap — you build toward it",f:"You can't build it, and you aren't meant to. A parade is not a backlog item. Treat it as a plan and you'll correctly conclude the whole exercise is silly."},
+          {t:"To break incremental thinking and surface a dimension you'd never have considered — then walk back to what's buildable",c:1,f:"That's it. The absurd rung is a crowbar, not a destination. The value lands on the walk back, at six or seven, which you'd never have reached by improving five."},
+          {t:"To show leadership ambition",f:"It'll do that by accident, and that's how the exercise gets ruined — it becomes a pitch instead of a way of thinking, and then nobody says anything genuinely absurd."}]},
+      {q:"Your tool is mandatory for the job. Usage is 100%. What does that tell you about quality?",
+       o:[{t:"It's working — full adoption",f:"That's compulsion, not preference. A toll booth has 100% adoption. You've measured that people have no alternative, which you already knew."},
+          {t:"Almost nothing",c:1,f:"Right. Go and find the real signal: shadow spreadsheets, copy-paste workarounds, time on task, support traffic, the steps people do twice. People who can't leave don't complain — they route around you quietly."},
+          {t:"That we've met the five-star bar",f:"Not even that. They'd still use it at two stars, because they must. Usage under compulsion can't tell you where on the ladder you are."}]},
+      {q:"You cut a flexible-query feature to ship a simpler flow six weeks sooner. What's the right move?",
+       o:[{t:"Ship quietly — most users never asked for it",f:"The ones who needed it will find out at the worst possible moment, and what they'll conclude is that you didn't think about them. An undeclared tradeoff reads as incompetence."},
+          {t:"Hold the release until both are ready",f:"Sometimes right — but you've now paid six weeks to avoid a difficult sentence. Making the call is your job; the cost of the call is what you have to be honest about."},
+          {t:"Ship it, and state the tradeoff, who it costs, and the condition under which you'd revisit",c:1,f:"Yes. A declared tradeoff reads as judgement; the same decision undeclared reads as carelessness. And the revisit condition is what stops “for now” quietly becoming “forever”."}]}],
+    outro:[
+      "One more, free with the room.",
+      "When people can't opt out, you don't get to rely on delight — so you <b>make the default path the good path.</b> Whatever happens when someone does nothing clever should be the thing you'd have wanted them to do.",
+      "That's the whole craft for services like that. Not charm. Defaults.",
+      "Take the ledger. And the cat's not coming with you, whatever she's implying."],
+    after:["Room's still here. The cat has forgiven you, conditionally.",
+      "If you want the exercise done properly: write five, then eleven, then stop and ask what dimension eleven used that five didn't. That's the one to go after."]
+  },
+  {
+    id:'hale', name:'MAYOR HALE', role:'the three shifts', card:'c7',
+    x:33, y:20, dir:0, needs:6,
+    pal:{skin:'#e3b089',hair:'#7a6a5a',shirt:'#2f4a7a',pants:'#2a2f44',hat:'#243a5e'},
+    locked:[
+      "Not yet. You've the look of someone who's read the cards and walked none of the roads.",
+      "Six neighbours. Mira west, Wren down the south road, Pell on Scribe Row, Tilda up the hill, Bram across the bridge, Nura at the inn.",
+      "Come back with six cards in that journal and I'll give you the only test in the valley that mixes them up."],
+    intro:[
+      "So. You've been round the whole valley.",
+      "Six people taught you six things, and each of them thinks theirs is the important one. They're all describing the same three shifts. Here they are, in a breath.",
+      "<b>From solutions to problems.</b> You stop accepting a build as a brief.",
+      "<b>From outputs to outcomes.</b> You stop reporting what you made and start reporting what moved.",
+      "<b>From one big launch to staged delivery.</b> You stop betting the year, and start buying information.",
+      "That's it. Everything on those cards is machinery for those three.",
+      "Now — six questions, mixed, no warning which is which. That's deliberate.",
+      "Mira's drill was easy because you knew it was about the swap test. Nobody labels them in a real meeting. <b>Sorting it yourself is the skill.</b>"],
+    quiz:[
+      {q:"A colleague opens with: “The problem is we don't have a mobile app.” Your first move?",
+       o:[{t:"Scope the app and come back with an estimate",f:"You've accepted a build as a brief, and from here every decision inherits the gap. Six months later the only question anyone can ask is whether the app shipped."},
+          {t:"Ask what they're trying to do when they reach for a phone",c:1,f:"Yes. “We don't have X” is an absence dressed as an affliction. Walk it back with “so that what?” until you reach something measurable — and do it as a question, not a veto."},
+          {t:"Survey users on whether they'd want a mobile app",f:"They'll say yes, and you'll have spent two weeks converting a guess into a confident guess. Stated preference isn't behaviour."}]},
+      {q:"Which of these belongs <em>below the line</em> in a problem statement, not inside it?",
+       o:[{t:"What it costs to leave the problem alone",f:"That's Consequence — it's load-bearing. Without it there's no case for doing anything at all."},
+          {t:"The proposed solution",c:1,f:"Right. Keep it, but keep it below the line as one candidate that can still lose. Welded into the statement, it stops anyone evaluating alternatives — and it's invisible, because it reads like part of the diagnosis."},
+          {t:"The evidence that the problem is real",f:"That's Confirmation, and it's the part most people write last and weakest. It belongs inside."}]},
+      {q:"Your plan's riskiest assumption: clinicians will act on an AI triage suggestion. Cheapest first test?",
+       o:[{t:"Get the model to 95% accuracy, then pilot it",f:"Months of feasibility work before touching the thing actually in doubt. And at 95% you'd still not know whether a single clinician would change a decision."},
+          {t:"Shadow-run for a week: show five clinicians suggestions on real cases — written by a human behind the curtain — and record how often they'd have acted",c:1,f:"Wizard of Oz, days not months, aimed straight at the behaviour. If they won't act on a good human suggestion, no accuracy figure will save the plan."},
+          {t:"Survey clinicians on their willingness to use AI triage",f:"You'll get polite answers about a hypothetical. Attitudes to “AI” tell you nothing about what someone does at 3am with a real patient in front of them."}]},
+      {q:"You report: “We shipped the recommendation engine on time, at 99.9% uptime.” As a result, this is:",
+       o:[{t:"A strong result",f:"It's a strong <em>delivery</em> report. Read it again for anything that changed for a user — there isn't a single clause."},
+          {t:"Entirely output",c:1,f:"Yes. Shipped, on time, uptime: three facts about you, none about anyone else. The question that follows — <em>and what moved?</em> — is the one you want to have answered before it's asked."},
+          {t:"A lagging indicator",f:"A lagging indicator would at least be measuring the world. Uptime measures the machine; it would read identically if nobody ever used the thing."}]},
+      {q:"Your outcome is “reduce support load.” Pick the <b>leading</b> indicator.",
+       o:[{t:"Monthly support cost",f:"Lagging, and badly so — it also moves with headcount, seasonality and pricing changes. By the time it shifts you've lost a quarter."},
+          {t:"Share of sessions where a user finds the answer without opening a ticket",c:1,f:"Leading: it moves within days of a change, and it's close enough to the mechanism to steer on. Pair it with the cost figure so you can tell whether it actually paid."},
+          {t:"Customer satisfaction score at quarter end",f:"Lagging, infrequent, and only loosely connected — CSAT moves for reasons that have nothing to do with support load."}]},
+      {q:"Six weeks, one engineer — and the real root cause is a two-team ownership gap you cannot close. You should:",
+       o:[{t:"Fix nothing until the organisation is sorted out",f:"Diagnostic purity, zero movement. You'll finish the quarter correct and with the problem exactly where you found it."},
+          {t:"Fix the deepest cause within reach, and put the ownership gap in writing where someone who can move it will see it",c:1,f:"Both halves. Fix what you can reach so the outcome moves; name what you can't so it stops being invisible and starts being somebody's. That's the whole of Wren's lesson applied under a real constraint."},
+          {t:"Patch the symptom and say nothing about the cause",f:"Buys a quarter, costs the next one — and the next team will rediscover the same gap from scratch, because nobody wrote it down."}]}],
+    outro:[
+      "That's the valley.",
+      "You came here because you'd been shipping things that didn't land. Nothing I've given you guarantees the next one will.",
+      "What it does is move the moment you find out — from <em>after</em> the build to <em>before</em> it. That's all product thinking has ever been, and it's worth more than it sounds.",
+      "One more thing, and then go home. <b>None of this works as a veto.</b> A person who answers every proposal with “but what's the problem?” gets excluded from the meeting where it's decided.",
+      "Ask the question. Bring the evidence. Offer the cheap test. Be the one who makes the decision better, not the one who makes it slower.",
+      "Go on. Your plot needs you, and the light's going."],
+    after:["Valley's yours now. Come back and sit the test again whenever you want a clean run.",
+      "And if a real project turns up — bring it. All of this is twice as sharp on something you actually care about."]
+  },
+];
+const NPCBY = {};
+NPCS.forEach(n => NPCBY[n.id]=n);
+/* ============================================================ PART E */
+const S = {
+  mode:'title', t:0, mute:false, started:false,
+  loc:'', locT:0,
+  cards:{},           /* id -> {perfect:bool} */
+  quiz:null, flow:null, near:null,
+};
+const player = {x:29*16+8, y:49*16+12, dir:0, f:0, anim:0, moving:false,
+  pal:{skin:'#e8b48a',hair:'#6b4226',shirt:'#3f7bb5',pants:'#3a4a66'}, sheet:null};
+const parts = [];
+const critters = [];
+
+function cardCount(){ return Object.keys(S.cards).filter(k=>k!=='c7').length; }
+
+/* ---------------- input ---------------- */
+const keys = {};
+const held = {up:0,down:0,left:0,right:0};
+let actionQueued = false, journalQueued = false;
+
+const KMAP = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+  w:'up',s:'down',a:'left',d:'right',W:'up',S:'down',A:'left',D:'right'};
+
+addEventListener('keydown', e=>{
+  const k = e.key;
+  if(KMAP[k]){ held[KMAP[k]]=1; e.preventDefault(); }
+  if(k===' '||k==='e'||k==='E'||k==='Enter'){ actionQueued=true; e.preventDefault(); }
+  if(k==='j'||k==='J'){ journalQueued=true; }
+  if(k==='m'||k==='M'){ S.mute=!S.mute; toast(S.mute?'SOUND OFF':'SOUND ON',''); }
+  if(k==='Escape'){ if(S.mode==='journal') closeJournal(); }
+  if(S.mode==='quiz' && /^[1-4]$/.test(k)) pickOption(parseInt(k,10)-1);
+  keys[k]=1;
+});
+addEventListener('keyup', e=>{ if(KMAP[e.key]) held[KMAP[e.key]]=0; keys[e.key]=0; });
+addEventListener('blur', ()=>{ for(const k in held) held[k]=0; });
+
+/* touch */
+if('ontouchstart' in window){
+  document.getElementById('touch').classList.add('on');
+  document.querySelectorAll('.dbtn').forEach(b=>{
+    const d=b.dataset.d;
+    const on=e=>{held[d]=1;e.preventDefault();}, off=e=>{held[d]=0;e.preventDefault();};
+    b.addEventListener('touchstart',on,{passive:false});
+    b.addEventListener('touchend',off,{passive:false});
+    b.addEventListener('touchcancel',off,{passive:false});
+  });
+  const ab=document.querySelector('.abtn');
+  ab.addEventListener('touchstart',e=>{actionQueued=true;e.preventDefault();},{passive:false});
+  document.querySelector('.jbtn').addEventListener('touchstart',
+    e=>{journalQueued=true;e.preventDefault();},{passive:false});
+}
+
+/* ---------------- audio ---------------- */
+let AC = null;
+function beep(freq, dur, type, vol){
+  if(S.mute) return;
+  try{
+    if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type||'square'; o.frequency.value=freq;
+    g.gain.value=0; o.connect(g); g.connect(AC.destination);
+    const t=AC.currentTime;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(vol||0.05,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||0.09));
+    o.start(t); o.stop(t+(dur||0.09)+0.02);
+  }catch(e){}
+}
+const SFX = {
+  blip:()=>beep(520+Math.random()*60,0.045,'square',0.022),
+  ok:()=>{beep(660,0.08,'square',0.05); setTimeout(()=>beep(990,0.12,'square',0.05),80);},
+  no:()=>{beep(180,0.14,'sawtooth',0.04);},
+  card:()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.16,'triangle',0.06),i*90));},
+  step:()=>beep(90+Math.random()*30,0.035,'triangle',0.018),
+  open:()=>beep(420,0.07,'square',0.035),
+};
+
+/* ---------------- collision ---------------- */
+const HW = 5, HH = 4;              /* feet hitbox half-extents */
+function blocked(px_, py_){
+  const x0=Math.floor((px_-HW)/TS), x1=Math.floor((px_+HW)/TS);
+  const y0=Math.floor((py_-HH)/TS), y1=Math.floor((py_+HH-1)/TS);
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+    if(!inB(x,y)) return true;
+    if(solid[y][x]) return true;
+  }
+  return false;
+}
+function npcBlock(px_, py_, self){
+  for(const n of NPCS){
+    if(n===self) continue;
+    if(Math.abs(n.px-px_)<11 && Math.abs(n.py-py_)<9) return true;
+  }
+  return false;
+}
+
+function initEntities(){
+  player.sheet = makeSheet(player.pal);
+  for(const n of NPCS){
+    n.sheet = makeSheet(n.pal);
+    n.px = n.x*16+8; n.py = n.y*16+14; n.f=0; n.anim=0; n.baseDir=n.dir;
+    solid[n.y][n.x]=1;
+  }
+  /* chickens on the farm, a cat on the inn porch */
+  const mk=(kind,tx,ty,hx,hy,hw,hh)=>critters.push({kind,x:tx*16+8,y:ty*16+12,
+    vx:0,vy:0,t:Math.random()*100,dir:1,home:{x:hx*16,y:hy*16,w:hw*16,h:hh*16}});
+  mk('chicken',23,47,20,44,7,7); mk('chicken',25,45,20,44,7,7); mk('chicken',22,49,20,44,7,7);
+  mk('cat',49,38,47,37,5,3);
+  mk('chicken',31,30,29,27,12,7);
+}
+
+/* ---------------- particles ---------------- */
+function puff(x,y){
+  parts.push({x,y,vx:(Math.random()-.5)*.3,vy:-.12-Math.random()*.1,
+    life:22,max:22,c:'rgba(210,190,160,.55)',s:2});
+}
+function sparkle(x,y,c){
+  parts.push({x,y,vx:(Math.random()-.5)*.8,vy:-.5-Math.random()*.7,
+    life:40,max:40,c:c||'#ffe9a8',s:2,grav:0.018});
+}
+function updateParts(){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.x+=p.vx; p.y+=p.vy; if(p.grav) p.vy+=p.grav;
+    if(--p.life<=0) parts.splice(i,1);
+  }
+  /* drifting leaves */
+  if(Math.random()<0.07){
+    const cx=cam.x, cy=cam.y;
+    parts.push({x:cx+Math.random()*view.w, y:cy-6, vx:0.25+Math.random()*0.35,
+      vy:0.18+Math.random()*0.2, life:260, max:260, leaf:1, s:2,
+      c:['#6aa85a','#c58a3a','#8ab45e'][(Math.random()*3)|0], ph:Math.random()*6.28});
+  }
+}
+
+/* ---------------- critters ---------------- */
+function updateCritters(){
+  for(const c of critters){
+    c.t += 1;
+    if(c.kind==='chicken'){
+      if(c.t % 70 === 0){
+        const a=Math.random()*6.28; c.vx=Math.cos(a)*0.28; c.vy=Math.sin(a)*0.2;
+        c.dir = c.vx<0 ? -1 : 1;
+      }
+      if(c.t % 70 > 34){ c.vx*=0.84; c.vy*=0.84; }
+      let nx=c.x+c.vx, ny=c.y+c.vy;
+      if(nx<c.home.x||nx>c.home.x+c.home.w) {c.vx*=-1; nx=c.x;}
+      if(ny<c.home.y||ny>c.home.y+c.home.h) {c.vy*=-1; ny=c.y;}
+      if(!blocked(nx,ny)){ c.x=nx; c.y=ny; }
+    } else {
+      if(c.t % 180 === 0) c.dir *= -1;
+    }
+  }
+}
+
+/* ---------------- player update ---------------- */
+let stepTimer = 0;
+function updatePlayer(dt){
+  let dx=0, dy=0;
+  if(S.mode==='play'){
+    dx = (held.right?1:0) - (held.left?1:0);
+    dy = (held.down?1:0) - (held.up?1:0);
+  }
+  const sp = 1.52;
+  if(dx||dy){
+    const m = (dx&&dy) ? 0.7071 : 1;
+    const nx = player.x + dx*sp*m, ny = player.y + dy*sp*m;
+    if(!blocked(nx, player.y) && !npcBlock(nx,player.y)) player.x = nx;
+    if(!blocked(player.x, ny) && !npcBlock(player.x,ny)) player.y = ny;
+    player.dir = dy>0?0 : dy<0?3 : dx<0?1:2;
+    if(dy===0) player.dir = dx<0?1:2;
+    player.anim += 0.18; player.moving = true;
+    stepTimer += 1;
+    if(stepTimer % 17 === 0){ SFX.step(); puff(player.x+(Math.random()-.5)*5, player.y+2); }
+  } else { player.moving=false; player.anim=0; }
+  player.f = player.moving ? (Math.floor(player.anim)%4) : 0;
+
+  /* region banner */
+  const r = regionAt(Math.floor(player.x/16), Math.floor(player.y/16));
+  if(r !== S.loc){ S.loc=r; showLoc(r); }
+
+  /* NPCs look at you when close */
+  for(const n of NPCS){
+    const d = Math.hypot(n.px-player.x, n.py-player.y);
+    if(d < 46){
+      const ax=player.x-n.px, ay=player.y-n.py;
+      n.dir = Math.abs(ax)>Math.abs(ay) ? (ax<0?1:2) : (ay<0?3:0);
+    } else n.dir = n.baseDir;
+    n.anim = (n.anim||0) + 0.03;
+    n.f = (Math.floor(n.anim)%4===2) ? 2 : 0;
+  }
+}
+
+/* nearest interactable */
+function findNear(){
+  let best=null, bd=40;
+  for(const n of NPCS){
+    const d=Math.hypot(n.px-player.x, n.py-player.y);
+    if(d<bd){ bd=d; best={kind:'npc', npc:n, x:n.px, y:n.py-30, label:'E · talk'}; }
+  }
+  for(const o of objs){
+    if(!o.sign) continue;
+    const ox=o.x*16+8, oy=o.y*16+10;
+    const d=Math.hypot(ox-player.x, oy-player.y);
+    if(d<bd){ bd=d; best={kind:'sign', sign:o.sign, x:ox, y:oy-24, label:'E · read'}; }
+  }
+  return best;
+}
+/* ============================================================ PART F */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let BB = null, bctx = null;
+const view = {w:320, h:200};
+const cam = {x:0, y:0};
+let DPR = 1;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = Math.max(2, Math.round(w*DPR));
+  cv.height = Math.max(2, Math.round(h*DPR));
+  view.w = Math.ceil(w/SCALE); view.h = Math.ceil(h/SCALE);
+  BB = cvs(view.w, view.h); bctx = BB.getContext('2d'); bctx.imageSmoothingEnabled=false;
+  ctx.imageSmoothingEnabled=false;
+}
+addEventListener('resize', resize);
+
+function objSprite(o){
+  switch(o.t){
+    case 'tree': return treeSpr(o.v);
+    case 'pine': return pineSpr();
+    case 'bush': return bushSpr(o.v);
+    case 'rock': return rockSpr(o.v);
+    case 'stump': return stumpSpr();
+    case 'fence': return fenceSpr(o.v);
+    case 'sign': return signSpr();
+    case 'crop': return cropSpr(o.v);
+    case 'lamp': return lampSpr();
+    case 'barrel': return barrelSpr();
+    case 'crate': return crateSpr();
+    case 'banner': return bannerSpr(o.v);
+    case 'fountain': return fountainSpr();
+    case 'house': return BUILDINGS[o.id].spr();
+  }
+  return null;
+}
+function drawShadow(g,x,y,rx,ry){
+  g.save(); g.globalAlpha=0.22; pell(g,x,y,rx,ry,'#1a1420'); g.restore();
+}
+function drawChar(g, sheet, x, y, dir, f){
+  drawShadow(g, x, y-1, 6, 2.5);
+  g.drawImage(sheet, f*16, dir*24, 16, 24, Math.round(x-8), Math.round(y-24), 16, 24);
+}
+function drawChicken(g,c){
+  const bob = Math.sin(c.t*0.25)*((Math.abs(c.vx)+Math.abs(c.vy))>0.05?1:0);
+  const x=Math.round(c.x), y=Math.round(c.y-bob);
+  drawShadow(g,x,y,4,2);
+  px(g,x-4,y-9,8,7,'#f4efe4'); px(g,x-4,y-9,8,2,'#fffdf7');
+  px(g,x+(c.dir>0?2:-5),y-13,4,5,'#f4efe4');
+  px(g,x+(c.dir>0?4:-6),y-11,2,2,'#e8a33a');
+  px(g,x+(c.dir>0?3:-4),y-13,1,1,'#2e2430');
+  px(g,x+(c.dir>0?2:-3),y-15,3,2,'#c2452f');
+  px(g,x-3,y-2,1,2,'#e8a33a'); px(g,x+2,y-2,1,2,'#e8a33a');
+  px(g,x-(c.dir>0?4:-1),y-8,3,4,'#e4dccd');
+}
+function drawCat(g,c){
+  const x=Math.round(c.x), y=Math.round(c.y);
+  const tail = Math.sin(c.t*0.06)*3;
+  drawShadow(g,x,y,6,2.5);
+  px(g,x-6,y-7,12,6,'#5a4a42'); px(g,x-6,y-7,12,2,'#6e5c52');
+  px(g,x+(c.dir>0?2:-6),y-12,5,6,'#5a4a42');
+  px(g,x+(c.dir>0?2:-6),y-14,2,3,'#5a4a42'); px(g,x+(c.dir>0?5:-3),y-14,2,3,'#5a4a42');
+  px(g,x+(c.dir>0?5:-5),y-10,1,1,'#d8e04a');
+  px(g,x-(c.dir>0?7:-3),y-9+tail,2,6,'#5a4a42');
+}
+function drawBubble(g,x,y,kind){
+  const bob = Math.round(Math.sin(S.t*0.08)*2);
+  const yy = y+bob;
+  px(g,x-6,yy-14,12,12,'#fdf0d4'); px(g,x-7,yy-13,14,10,'#fdf0d4');
+  px(g,x-6,yy-15,12,1,'#5a3521'); px(g,x-6,yy-2,12,1,'#5a3521');
+  px(g,x-8,yy-13,1,10,'#5a3521'); px(g,x+7,yy-13,1,10,'#5a3521');
+  px(g,x-2,yy-2,4,3,'#fdf0d4'); px(g,x-2,yy+1,2,2,'#fdf0d4');
+  if(kind==='!'){ px(g,x-1,yy-12,2,6,'#c2452f'); px(g,x-1,yy-5,2,2,'#c2452f'); }
+  else if(kind==='star'){ px(g,x-1,yy-11,2,8,'#e8a33a'); px(g,x-4,yy-8,8,2,'#e8a33a');
+    px(g,x-3,yy-10,6,5,'#f0c860'); px(g,x-1,yy-12,2,2,'#f0c860'); }
+  else { px(g,x-4,yy-8,2,2,'#7a6a55'); px(g,x-1,yy-8,2,2,'#7a6a55'); px(g,x+2,yy-8,2,2,'#7a6a55'); }
+}
+function drawSmoke(g,sx,sy,seed){
+  for(let i=0;i<4;i++){
+    const t = ((S.t*0.6 + i*34 + seed*17) % 130)/130;
+    const y = sy - t*42, x = sx + Math.sin(t*5+seed)*6*t;
+    const r = 2 + t*5;
+    g.save(); g.globalAlpha = (1-t)*0.4; pell(g,x,y,r,r,'#e8e4de'); g.restore();
+  }
+}
+
+const clouds = [];
+for(let i=0;i<7;i++) clouds.push({x:Math.random()*MW*16, y:Math.random()*MH*16,
+  r:60+Math.random()*90, s:0.12+Math.random()*0.12});
+
+function render(){
+  const g = bctx;
+  /* camera */
+  const tx = clamp(player.x - view.w/2, 0, Math.max(0, MW*16 - view.w));
+  const ty = clamp(player.y - view.h/2 - 6, 0, Math.max(0, MH*16 - view.h));
+  cam.x = Math.round(lerp(cam.x, tx, 0.14));
+  cam.y = Math.round(lerp(cam.y, ty, 0.14));
+
+  g.clearRect(0,0,view.w,view.h);
+  g.save(); g.translate(-cam.x, -cam.y);
+
+  /* ground */
+  g.drawImage(GROUND, cam.x, cam.y, view.w, view.h, cam.x, cam.y, view.w, view.h);
+
+  /* animated water over visible water tiles */
+  const x0=Math.max(0,(cam.x/16|0)-1), x1=Math.min(MW-1,((cam.x+view.w)/16|0)+1);
+  const y0=Math.max(0,(cam.y/16|0)-1), y1=Math.min(MH-1,((cam.y+view.h)/16|0)+1);
+  const wf = WATER_FRAMES[(S.t/14|0)%4];
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+    if(map[y][x]===T.WATER){
+      g.drawImage(wf[(hash2(x,y)*3)|0], x*16, y*16);
+      /* foam against land */
+      if(y>0 && map[y-1][x]!==T.WATER) px(g,x*16,y*16,16,1,P.foam);
+      if(x>0 && map[y][x-1]!==T.WATER) px(g,x*16,y*16,1,16,P.foam);
+      if(x<MW-1 && map[y][x+1]!==T.WATER) px(g,x*16+15,y*16,1,16,P.foam);
+    }
+  }
+
+  /* cloud shadows */
+  g.save(); g.globalAlpha=0.07;
+  for(const c of clouds){
+    const cx = (c.x + S.t*c.s) % (MW*16+400) - 200;
+    if(cx > cam.x-c.r-40 && cx < cam.x+view.w+c.r+40)
+      pell(g, cx, c.y, c.r, c.r*0.52, '#101018');
+  }
+  g.restore();
+
+  /* y-sorted scene */
+  const draws = [];
+  for(const o of objs){
+    const sp = objSprite(o); if(!sp) continue;
+    const bx = o.x*16 + (o.w*16 - sp.width)/2;
+    const by = (o.y+o.h)*16 - sp.height + (o.t==='house'?6:2);
+    if(bx > cam.x+view.w+40 || bx+sp.width < cam.x-40) continue;
+    if(by > cam.y+view.h+40 || by+sp.height < cam.y-60) continue;
+    draws.push({y:(o.y+o.h)*16 + (o.t==='house'?-2:0), fn:()=>{
+      if(o.t==='tree'||o.t==='pine') drawShadow(g, o.x*16+8, (o.y+1)*16-2, 8, 3);
+      g.drawImage(sp, Math.round(bx), Math.round(by));
+      if(o.smoke) drawSmoke(g, o.smoke.x, o.smoke.y, o.x);
+    }});
+  }
+  for(const c of critters)
+    draws.push({y:c.y, fn:()=> c.kind==='chicken'?drawChicken(g,c):drawCat(g,c)});
+  for(const n of NPCS){
+    if(n.px<cam.x-40||n.px>cam.x+view.w+40||n.py<cam.y-60||n.py>cam.y+view.h+60) continue;
+    draws.push({y:n.py, fn:()=>{
+      drawChar(g, n.sheet, n.px, n.py, n.dir, n.f);
+      const done = S.cards[n.card];
+      const lockedOut = n.needs && cardCount() < n.needs;
+      if(S.mode==='play')
+        drawBubble(g, n.px, n.py-28, done ? (done.perfect?'star':'…') : (lockedOut?'…':'!'));
+    }});
+  }
+  draws.push({y:player.y, fn:()=>drawChar(g, player.sheet, player.x, player.y, player.dir, player.f)});
+  draws.sort((a,b)=>a.y-b.y);
+  for(const d of draws) d.fn();
+
+  /* particles */
+  for(const p of parts){
+    const a = p.leaf ? Math.min(1,p.life/40) : p.life/p.max;
+    g.save(); g.globalAlpha = a*0.9;
+    if(p.leaf){ const sw = Math.sin(p.ph + S.t*0.08)*2;
+      px(g, p.x+sw, p.y, 2, 2, p.c); }
+    else px(g, p.x, p.y, p.s, p.s, p.c);
+    g.restore();
+  }
+  g.restore();
+
+  /* warm late-afternoon grade + vignette */
+  g.save();
+  g.globalCompositeOperation='overlay'; g.globalAlpha=0.1;
+  g.fillStyle='#ffb86b'; g.fillRect(0,0,view.w,view.h);
+  g.restore();
+  const vg = g.createRadialGradient(view.w/2,view.h/2,view.h*0.34,view.w/2,view.h/2,view.h*0.85);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(20,10,30,0.35)');
+  g.fillStyle=vg; g.fillRect(0,0,view.w,view.h);
+
+  /* blit */
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(BB, 0,0, view.w, view.h, 0,0, view.w*SCALE*DPR, view.h*SCALE*DPR);
+
+  /* screen-space labels */
+  ctx.save();
+  ctx.scale(DPR,DPR);
+  ctx.font = '10px "Press Start 2P", monospace';
+  ctx.textAlign='center';
+  for(const n of NPCS){
+    const sx = (n.px-cam.x)*SCALE, sy = (n.py-cam.y)*SCALE - 86;
+    if(sx<-80||sx>cv.width/DPR+80||sy<0||sy>cv.height/DPR) continue;
+    const d = Math.hypot(n.px-player.x, n.py-player.y);
+    if(d>120) continue;
+    ctx.globalAlpha = clamp((120-d)/50, 0, 1);
+    const w = ctx.measureText(n.name).width;
+    ctx.fillStyle='rgba(28,20,34,.78)';
+    ctx.fillRect(sx-w/2-6, sy-12, w+12, 17);
+    ctx.fillStyle='#f4e3c1'; ctx.fillText(n.name, sx, sy);
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+
+  /* prompt chip */
+  const near = (S.mode==='play') ? findNear() : null;
+  S.near = near;
+  const pe = document.getElementById('prompt');
+  if(near){
+    pe.style.display='block';
+    pe.style.left = ((near.x-cam.x)*SCALE) + 'px';
+    pe.style.top  = ((near.y-cam.y)*SCALE) + 'px';
+    pe.textContent = near.label;
+  } else pe.style.display='none';
+
+  drawMini();
+}
+
+const mmc = document.getElementById('mm');
+function drawMini(){
+  if(mmc.width!==MW){ mmc.width=MW; mmc.height=MH; }
+  const g = mmc.getContext('2d');
+  g.imageSmoothingEnabled=false;
+  g.drawImage(MINI,0,0);
+  for(const n of NPCS){
+    const done = S.cards[n.card];
+    g.fillStyle = done ? '#7fe08a' : '#ffd24a';
+    g.fillRect(n.x-1, n.y-1, 3, 3);
+  }
+  g.fillStyle='#fff';
+  const px_=Math.floor(player.x/16), py_=Math.floor(player.y/16);
+  g.fillRect(px_-1, py_-1, 3, 3);
+  g.fillStyle='#c2452f'; g.fillRect(px_, py_, 1, 1);
+}
+/* ============================================================ PART G */
+const $ = id => document.getElementById(id);
+const elDlg=$('dlg'), elTxt=$('dtxt'), elNm=$('dnm'), elRole=$('drole'),
+      elOpts=$('dopts'), elHint=$('dhint'), elPort=$('port');
+
+function showLoc(name){
+  const e=$('loc'); e.textContent=name; e.classList.add('show');
+  clearTimeout(showLoc._t); showLoc._t=setTimeout(()=>e.classList.remove('show'),2200);
+}
+function toast(main, sub){
+  const e=$('toast');
+  e.innerHTML = main + (sub?('<div class="sub">'+sub+'</div>'):'');
+  e.classList.add('show');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>e.classList.remove('show'), 2800);
+}
+function updateStars(){
+  const order=['c1','c2','c3','c4','c5','c6','c7'];
+  $('starrow').innerHTML = order.map(c=>{
+    const v=S.cards[c];
+    if(!v) return '<span style="opacity:.35">·</span>';
+    return v.perfect ? '<span style="color:#ffd24a">★</span>' : '<span style="color:#cfe0b4">☆</span>';
+  }).join('');
+}
+
+/* ---------- rich text + typewriter ---------- */
+function splitRich(s){ return s.split(/(<[^>]+>)/).filter(x=>x!==''); }
+function richLen(parts){ let n=0; for(const p of parts) if(p[0]!=='<') n+=p.length; return n; }
+function richSlice(parts, n){
+  let out='', c=0;
+  for(const p of parts){
+    if(p[0]==='<'){ out+=p; continue; }
+    if(c>=n) break;
+    const take = Math.min(p.length, n-c);
+    out += p.slice(0,take); c+=take;
+  }
+  return out;
+}
+const TW = {parts:null, n:0, len:0, on:false};
+function setText(s){
+  TW.parts = splitRich(s); TW.len = richLen(TW.parts); TW.n = 0; TW.on = true;
+  elTxt.innerHTML='';
+}
+function tickText(){
+  if(!TW.on) return;
+  TW.n = Math.min(TW.len, TW.n + 2);
+  elTxt.innerHTML = richSlice(TW.parts, TW.n);
+  if(TW.n % 6 === 0) SFX.blip();
+  if(TW.n >= TW.len){ TW.on=false; onTextDone(); }
+}
+function finishText(){
+  if(!TW.on) return false;
+  TW.n = TW.len; elTxt.innerHTML = richSlice(TW.parts, TW.n); TW.on=false; onTextDone(); return true;
+}
+function onTextDone(){
+  const f=S.flow; if(!f) return;
+  const st=f.steps[f.i];
+  if(st && st.type==='q'){ renderOptions(st.q); S.mode='quiz'; elHint.style.display='none'; }
+  else elHint.style.display='';
+}
+
+/* ---------- portrait ---------- */
+function setPortrait(sheet){
+  const g=elPort.getContext('2d'); g.imageSmoothingEnabled=false;
+  g.clearRect(0,0,24,24);
+  g.fillStyle='#cbb189'; g.fillRect(0,0,24,24);
+  if(sheet) g.drawImage(sheet, 3, 0, 11, 12, 1, 0, 22, 24);
+  else { g.fillStyle='#8a5a3c'; g.fillRect(6,6,12,12); }
+}
+
+/* ---------- flow ---------- */
+function startFlow(npc, steps, meta){
+  S.flow = {npc, steps, i:-1, right:0, total:0, awaiting:false, meta:meta||{}};
+  elDlg.classList.add('on');
+  elNm.textContent = npc ? npc.name : (meta&&meta.title) || '';
+  elRole.textContent = npc ? npc.role : '';
+  setPortrait(npc ? npc.sheet : null);
+  SFX.open();
+  nextStep();
+}
+function endFlow(){
+  S.flow=null; elDlg.classList.remove('on'); elOpts.innerHTML=''; S.mode='play';
+}
+function nextStep(){
+  const f=S.flow; if(!f) return;
+  f.i++;
+  if(f.i >= f.steps.length){ endFlow(); return; }
+  const st = f.steps[f.i];
+  elOpts.innerHTML=''; f.awaiting=false;
+  if(st.type==='say'){ S.mode='dialog'; setText(st.text); }
+  else if(st.type==='q'){ S.mode='dialog'; setText('<b>'+(f.qn=(f.qn||0)+1)+'.</b> '+st.q.q); }
+  else if(st.type==='result'){ doResult(); }
+}
+function advance(){
+  const f=S.flow; if(!f) return;
+  if(finishText()) return;
+  if(S.mode==='quiz') return;              /* must answer */
+  nextStep();
+}
+function renderOptions(q){
+  elOpts.innerHTML='';
+  q.o.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='opt';
+    b.innerHTML = '<span class="k">'+(i+1)+'</span>'+o.t;
+    b.onclick = ()=>pickOption(i);
+    elOpts.appendChild(b);
+  });
+}
+function pickOption(i){
+  const f=S.flow; if(!f || S.mode!=='quiz') return;
+  const st=f.steps[f.i]; if(!st||st.type!=='q') return;
+  const o = st.q.o[i]; if(!o) return;
+  const btns = elOpts.querySelectorAll('.opt');
+  if(!btns.length) return;
+  f.total++;
+  const ok = !!o.c;
+  if(ok){ f.right++; SFX.ok(); } else SFX.no();
+  btns.forEach((b,bi)=>{
+    b.onclick=null; b.style.pointerEvents='none';
+    if(st.q.o[bi].c) b.classList.add('right');
+    else if(bi===i) b.classList.add('wrong');
+    else b.style.opacity='.45';
+  });
+  const fb=document.createElement('div');
+  fb.className='fbline pix '+(ok?'right':'wrong');
+  fb.textContent = ok ? '✔ CORRECT' : '✘ NOT QUITE';
+  const body=document.createElement('div');
+  body.style.cssText='font-size:20px;line-height:1.25;color:#3a2a22';
+  body.innerHTML = o.f + ' <span style="color:#9a7a55">▸ space</span>';
+  const wrap=document.createElement('div');
+  wrap.style.cssText='margin-top:10px;border-top:2px dashed #c0a173;padding-top:9px';
+  wrap.appendChild(fb); wrap.appendChild(body);
+  elOpts.appendChild(wrap);
+  S.mode='dialog'; elHint.style.display='';
+  wrap.scrollIntoView({block:'nearest'});
+}
+function doResult(){
+  const f=S.flow, npc=f.npc;
+  const perfect = f.right===f.total;
+  const prev = S.cards[npc.card];
+  const firstTime = !prev;
+  S.cards[npc.card] = {perfect: !!(perfect || (prev && prev.perfect))};
+  updateStars();
+  const tail = [];
+  tail.push({type:'say', text:
+    (perfect ? '<b>'+f.right+' out of '+f.total+'.</b> Clean run. '
+             : '<b>'+f.right+' out of '+f.total+'.</b> ') +
+    (perfect ? 'Nothing left to argue with.'
+             : 'The ones you missed are the ones worth re-reading — come back and sit it again when you want a clean run.')});
+  npc.outro.forEach(t=>tail.push({type:'say', text:t}));
+  f.steps.splice(f.i+1, 0, ...tail);
+  if(firstTime){
+    SFX.card();
+    for(let i=0;i<24;i++) sparkle(npc.px+(Math.random()-.5)*20, npc.py-12-Math.random()*16);
+    toast('FIELD CARD ACQUIRED', CARDS[npc.card].n);
+  } else if(perfect){ SFX.card(); toast('CLEAN RUN', CARDS[npc.card].n); }
+  nextStep();
+}
+
+/* ---------- talking ---------- */
+function talkTo(npc){
+  const steps=[];
+  const done = S.cards[npc.card];
+  const lockedOut = npc.needs && cardCount() < npc.needs;
+  if(lockedOut){
+    npc.locked.forEach(t=>steps.push({type:'say',text:t}));
+    steps.push({type:'say', text:'You have <b>'+cardCount()+' of '+npc.needs+'</b>. Press <b>J</b> to see which roads you have not walked.'});
+  } else if(done){
+    npc.after.forEach(t=>steps.push({type:'say',text:t}));
+    steps.push({type:'say', text: done.perfect
+      ? 'Sit the test again if you like — the questions do not change, but you will be faster.'
+      : 'You have the card, but not a clean run. Shall we go again? <em>Press space to begin.</em>'});
+    npc.quiz.forEach(q=>steps.push({type:'q', q}));
+    steps.push({type:'result'});
+  } else {
+    npc.intro.forEach(t=>steps.push({type:'say',text:t}));
+    npc.quiz.forEach(q=>steps.push({type:'q', q}));
+    steps.push({type:'result'});
+  }
+  startFlow(npc, steps);
+}
+function readSign(sign){
+  const steps = sign.lines.map(t=>({type:'say', text:t}));
+  startFlow(null, steps, {title: sign.title});
+}
+
+/* ---------- journal ---------- */
+let jtab='cards';
+function openJournal(){
+  S.mode='journal'; $('jr').classList.add('on'); SFX.open(); renderJournal();
+}
+function closeJournal(){ $('jr').classList.remove('on'); S.mode='play'; }
+function renderJournal(){
+  const tabs=$('jtabs');
+  tabs.innerHTML='';
+  [['cards','FIELD CARDS'],['quests','THE VALLEY'],['how','HOW TO PLAY']].forEach(([k,l])=>{
+    const b=document.createElement('div');
+    b.className='jtab'+(jtab===k?' on':''); b.textContent=l;
+    b.onclick=()=>{jtab=k; SFX.blip(); renderJournal();};
+    tabs.appendChild(b);
+  });
+  const body=$('jbody'); body.innerHTML='';
+  if(jtab==='cards'){
+    const ids=['c1','c2','c3','c4','c5','c6','c7'];
+    let any=false;
+    for(const id of ids){
+      const c=CARDS[id], got=S.cards[id];
+      const d=document.createElement('div');
+      d.className='card'+(got?'':' locked');
+      if(got){ any=true;
+        d.innerHTML='<h3>'+c.n+(got.perfect?' &nbsp;★':'')+'</h3><div class="by">'+c.by+'</div>'+c.html;
+      } else {
+        d.innerHTML='<h3>'+c.n.replace(/—.*/,'— ? ? ?')+'</h3><div class="by">not yet earned</div>'+
+          '<p>Find the neighbour who teaches it, and pass their drill.</p>';
+      }
+      body.appendChild(d);
+    }
+    if(!any){
+      const p=document.createElement('p');
+      p.style.cssText='font-size:20px;color:#7a6a55';
+      p.textContent='Nothing yet. Walk west from the plaza — Mira is the one to start with.';
+      body.insertBefore(p, body.firstChild);
+    }
+  } else if(jtab==='quests'){
+    const where={mira:'Workshop Lane, west of the plaza', wren:"Wren's Hollow, far down the south road",
+      pell:'Scribe Row, north-west', tilda:'Stargazer Hill, north-east',
+      bram:'Risk Ridge, east over the bridge', nura:'Lantern Row, south-east',
+      hale:'Town Hall, due north of the plaza'};
+    for(const n of NPCS){
+      const got=S.cards[n.card];
+      const lockedOut = n.needs && cardCount() < n.needs;
+      const r=document.createElement('div'); r.className='qrow';
+      r.innerHTML='<div class="st">'+(got?(got.perfect?'<span style="color:#d8a21a">★</span>':'<span style="color:#5f9e4e">☆</span>'):(lockedOut?'🔒':'<span style="color:#c2452f">!</span>'))+'</div>'+
+        '<div class="nm">'+n.name+'<small>'+n.role+(got?(got.perfect?' — clean run':' — card earned, not a clean run'):(lockedOut?' — needs '+n.needs+' cards':' — not yet spoken to'))+'</small></div>'+
+        '<div class="where">'+where[n.id]+'</div>';
+      body.appendChild(r);
+    }
+    const p=document.createElement('p');
+    p.style.cssText='font-size:19px;color:#7a6a55;margin-top:14px;line-height:1.3';
+    p.innerHTML='A <span style="color:#c2452f">!</span> over someone means they have something to teach. '+
+      'A ☆ means you have the card; a <span style="color:#d8a21a">★</span> means you answered everything correctly. '+
+      'You can re-sit any drill as many times as you like.';
+    body.appendChild(p);
+  } else {
+    body.innerHTML =
+      '<div class="card"><h3>HOW TO PLAY</h3>'+
+      '<ul><li><b>WASD</b> or <b>arrow keys</b> — walk</li>'+
+      '<li><b>E</b> or <b>space</b> — talk to a neighbour, read a signpost, advance dialogue</li>'+
+      '<li><b>1–4</b> or click — answer a question</li>'+
+      '<li><b>J</b> — this journal &nbsp;·&nbsp; <b>M</b> — mute &nbsp;·&nbsp; <b>Esc</b> — close</li></ul>'+
+      '<p>Six neighbours each teach one framework and then drill you on it. Collect their field cards, '+
+      'then see Mayor Hale at the Town Hall for the mixed final — the one where nobody tells you which '+
+      'framework a question belongs to.</p>'+
+      '<p class="note">Built on the IDG <em>Product Thinking</em> curriculum (idg.gov.sg), with Marty Cagan '+
+      '(SVPG) and Teresa Torres for the non-government framing, and Brian Chesky’s eleven-star exercise. '+
+      'The government framing has been translated to general product and AI work throughout.</p></div>';
+  }
+  body.scrollTop=0;
+}
+
+/* ---------- main loop ---------- */
+function loop(){
+  requestAnimationFrame(loop);
+  if(S.mode==='title') return;
+  S.t++;
+
+  if(journalQueued){
+    journalQueued=false;
+    if(S.mode==='journal') closeJournal();
+    else if(S.mode==='play') openJournal();
+  }
+  if(actionQueued){
+    actionQueued=false;
+    if(S.mode==='journal') closeJournal();
+    else if(S.flow) advance();
+    else if(S.mode==='play' && S.near){
+      if(S.near.kind==='npc') talkTo(S.near.npc);
+      else readSign(S.near.sign);
+    }
+  }
+  tickText();
+  updatePlayer();
+  updateCritters();
+  updateParts();
+  render();
+}
+
+/* ---------- boot ---------- */
+function boot(){
+  buildTileset();
+  genWorld();
+  initEntities();
+  resize();
+  updateStars();
+  cam.x = clamp(player.x - view.w/2, 0, Math.max(0, MW*16-view.w));
+  cam.y = clamp(player.y - view.h/2, 0, Math.max(0, MH*16-view.h));
+  render();
+}
+$('startbtn').onclick = ()=>{
+  $('title').style.display='none';
+  S.mode='play';
+  resize();
+  SFX.card();
+  setTimeout(()=>showLoc('Your Farm'), 250);
+  setTimeout(()=>toast('PRODUCT VALLEY','Six neighbours. Start with Mira, west of the plaza.'), 900);
+};
+addEventListener('keydown', e=>{
+  if(S.mode==='title' && (e.key===' '||e.key==='Enter')) $('startbtn').click();
+});
+boot();
+loop();
+</script>
+</body>
+</html>
